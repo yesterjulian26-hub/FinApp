@@ -1,8 +1,27 @@
-const CACHE_NAME = 'finapp-v1';
+const CACHE_NAME = 'finapp-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/css/styles.css',
+  '/js/app.js',
+  '/js/firebase-config.js',
+  '/js/db.js',
+  '/js/utils.js',
+  '/js/ui/dashboard.js',
+  '/js/ui/transactions.js',
+  '/js/ui/budgets.js',
+  '/js/ui/categories.js',
+  '/js/ui/goals.js',
+  '/js/ui/accounts.js',
+  '/js/ui/loans.js',
+  '/js/ui/recurring.js',
+  '/js/ui/reports.js',
+  '/js/ui/projection.js',
+  '/js/ui/report-pdf.js',
+  '/js/ui/notifications.js',
+  '/js/ui/ai-chat.js',
+  '/js/ui/settings.js'
 ];
 
 self.addEventListener('install', e => {
