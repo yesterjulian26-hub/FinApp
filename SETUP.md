@@ -1,96 +1,46 @@
-# FinApp — Configuración Rápida (5 minutos)
+# FinApp — Configuración
 
-## Estado actual
-- **Proyecto GCP creado**: `finapp-499619`
-- **Backend listo**: `Code.gs` con soporte multi-usuario
-- **Frontend listo**: `index.html` con UI premium y Firebase Auth
-- **Falta**: Agregar Firebase al proyecto + obtener config
-
----
-
-## Paso 1: Agregar Firebase al proyecto (2 min)
-
-1. Abre: **https://console.firebase.google.com/u/0/project/finapp-499619/overview**
-2. Acepta las condiciones de Firebase → Click **Continuar**
-3. En la pantalla de Google Analytics, desactívalo → Click **Agregar Firebase**
-4. Espera ~30 segundos a que se configure
-
-## Paso 2: Registrar la App Web y copiar config (1 min)
-
-1. En la página principal del proyecto Firebase, click el ícono **</>** (Web)
-2. Nombre: `FinApp` → Click **Registrar app**
-3. Copia el bloque `firebaseConfig` que aparece
-4. Abre `index.html`, busca `REEMPLAZA ESTO` (línea ~1018) y pega tu config:
-
-```javascript
-const firebaseConfig = {
-  apiKey: "AIzaSy...",          // ← tu valor
-  authDomain: "finapp-499619.firebaseapp.com",
-  projectId: "finapp-499619",
-  storageBucket: "finapp-499619.firebasestorage.app",
-  messagingSenderId: "879966880858",
-  appId: "1:879966880858:web:..." // ← tu valor
-};
-```
-
-## Paso 3: Habilitar Google Sign-In (1 min)
-
-1. En Firebase Console → **Build → Authentication → Get Started**
-2. Pestaña **Sign-in method** → Click **Google**
-3. **Habilitar** → Selecciona tu email como "Support email" → **Guardar**
-
----
-
-## Paso 4: Desplegar Code.gs en Apps Script
-
-1. Ve a [Google Apps Script](https://script.google.com/)
-2. Crea un nuevo proyecto → pega el contenido de `Code.gs`
-3. **Implementar → Nueva implementación** → App web → Ejecutar como: Yo → Acceso: Cualquiera
-4. Copia la URL y actualiza la constante `API` en `index.html` (línea ~1013)
-
-**IMPORTANTE**: Cada vez que modifiques Code.gs, crea una **nueva implementación**.
-
-## Paso 5: Hosting (elige uno, ambos gratis)
-
-### Opción A: Firebase Hosting
-```bash
-npm install -g firebase-tools
-firebase login
-firebase init hosting   # directorio: . | NO es SPA
-firebase deploy
-```
-
-### Opción B: GitHub Pages
-1. Sube `index.html` y `manifest.json` a un repo
-2. Settings → Pages → Deploy from branch → main
-
----
-
-## Arquitectura
-- **Frontend**: HTML/CSS/JS estático
-- **Backend**: Google Apps Script + Google Sheets
+## Arquitectura actual
+- **Frontend**: HTML/CSS/JS estático, ES modules (sin build step)
+- **Datos**: Firebase Firestore (cliente, por usuario en `/users/{uid}/...`)
 - **Auth**: Firebase Authentication (Google Sign-In)
-- **IA**: Google Gemini API
-- **Límite**: 30 usuarios gratuitos (configurable en Code.gs → MAX_USERS)
+- **Hosting**: Netlify
+- **IA**: Google Gemini API, vía Netlify Function (`netlify/functions/chat-ia.js`) para no exponer la key en el cliente
 
-## Estructura de Hojas (Google Sheets)
+## Paso 1: Firebase
 
-| Hoja | Columnas |
-|------|----------|
-| Usuarios | UID, Email, Nombre, FotoURL, FechaRegistro, OnboardingCompleto |
-| Transacciones | ID, UID, Fecha, Tipo, Categoria, Descripcion, Monto, Cuenta |
-| Presupuestos | UID, Categoria, MontoMensual |
-| Categorias | UID, Tipo, Nombre |
-| Metas | ID, UID, Nombre, MontoObjetivo, MontoActual, FechaLimite, Estado |
-| Cuentas | ID, UID, Nombre, Tipo, SaldoInicial |
-| Recurrentes | ID, UID, Tipo, Categoria, Descripcion, Monto, Cuenta, Frecuencia, ProximaFecha |
+1. Abre [Firebase Console](https://console.firebase.google.com/u/0/project/finapp-499619/overview)
+2. **Authentication → Sign-in method → Google → Habilitar**
+3. **Authentication → Settings → Authorized domains** → agrega el dominio de Netlify (ej: `finapp-dr.netlify.app`)
+4. **Firestore Database → Rules** → pega el contenido de [`firestore.rules`](firestore.rules)
 
-## Límites Gratuitos
+La configuración del SDK (`apiKey`, `projectId`, etc.) ya está en [`js/firebase-config.js`](js/firebase-config.js).
 
-| Servicio | Límite Gratis |
+## Paso 2: Netlify
+
+1. **Site configuration → Environment variables** → agrega `GEMINI_API_KEY` con tu key de [Google AI Studio](https://aistudio.google.com/apikey)
+2. **Deploys → Trigger deploy → Deploy site** (las env vars solo se inyectan en deploys nuevos)
+3. El deploy usa [`netlify.toml`](netlify.toml): publica la raíz del repo y sirve las funciones desde `netlify/functions`
+
+## Estructura de datos (Firestore)
+
+```
+/users/{uid}
+  transacciones/{id}   — fecha, tipo, categoria, descripcion, monto, cuenta
+  presupuestos/{id}    — categoria, montoLimite
+  categorias/{id}       — tipo, nombre, icono, color
+  metas/{id}             — nombre, montoObjetivo, montoActual, meses, montoMensual, estado
+  cuentas/{id}           — nombre, tipo, saldoInicial
+  recurrentes/{id}       — tipo, categoria, descripcion, monto, cuenta, frecuencia, proximaFecha
+  prestamos/{id}
+    cuotas/{cuotaId}     — numero, fechaVencimiento, estado
+```
+
+## Límites gratuitos
+
+| Servicio | Límite gratis |
 |----------|---------------|
 | Firebase Auth | 50,000 usuarios/mes |
-| Firebase Hosting | 10 GB transferencia/mes |
-| Google Sheets | 10 millones de celdas |
-| Apps Script | 90 min ejecución/día, 20,000 llamadas/día |
+| Firestore | 50K lecturas / 20K escrituras por día |
+| Netlify | 100 GB transferencia/mes, 125K invocaciones de funciones/mes |
 | Gemini API | Tier gratuito con límites generosos |
