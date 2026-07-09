@@ -218,9 +218,11 @@ tr:hover td { background:var(--bg3); }
 .badge.ingreso { background:rgba(0,184,148,0.12); color:#00b894; }
 .badge.gasto { background:rgba(231,76,60,0.1); color:#e74c3c; }
 .badge.pago { background:rgba(9,132,227,0.1); color:#0984e3; }
+.badge.ahorro { background:rgba(108,92,231,0.1); color:#6c5ce7; }
 [data-theme="dark"] .badge.ingreso { background:rgba(0,184,148,0.2); }
 [data-theme="dark"] .badge.gasto { background:rgba(231,76,60,0.2); }
 [data-theme="dark"] .badge.pago { background:rgba(9,132,227,0.2); }
+[data-theme="dark"] .badge.ahorro { background:rgba(108,92,231,0.2); }
 
 /* Buttons */
 .btn { display:inline-flex; align-items:center; gap:6px; padding:10px 20px; border-radius:var(--radius-sm);

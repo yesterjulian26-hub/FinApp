@@ -186,13 +186,46 @@ export async function updateMeta(id, data) {
   await updateDoc('metas', id, data);
 }
 
-export async function abonarMeta(id, monto) {
+export async function editarMeta(id, m) {
   const meta = await getDoc('metas', id);
   if (!meta) throw new Error('Meta no encontrada');
-  const nuevo = (meta.montoActual || 0) + (parseFloat(monto) || 0);
+  const montoObjetivo = parseFloat(m.montoObjetivo) || 0;
+  const meses = parseInt(m.meses) || 0;
+  const estado = montoObjetivo > 0 && (meta.montoActual || 0) >= montoObjetivo ? 'Completada' : 'Activa';
+  const data = {
+    nombre: m.nombre,
+    montoObjetivo,
+    meses,
+    montoMensual: meses > 0 ? +(montoObjetivo / meses).toFixed(2) : 0,
+    cuenta: m.cuenta || 'General',
+    fechaLimite: m.fechaLimite || '',
+    estado
+  };
+  await updateDoc('metas', id, data);
+  return { id, ...meta, ...data };
+}
+
+export async function abonarMontoMeta(id, monto) {
+  const meta = await getDoc('metas', id);
+  if (!meta) throw new Error('Meta no encontrada');
+  if (meta.estado === 'Completada') throw new Error('Esta meta ya fue completada');
+  const cantidad = parseFloat(monto) || 0;
+  if (cantidad <= 0) throw new Error('Monto inválido');
+
+  const nuevo = (meta.montoActual || 0) + cantidad;
   const estado = nuevo >= meta.montoObjetivo ? 'Completada' : 'Activa';
   await updateDoc('metas', id, { montoActual: nuevo, estado });
-  return { montoActual: nuevo, estado };
+
+  const tx = await addTransaccion({
+    fecha: new Date().toISOString().slice(0, 10),
+    tipo: 'ahorro',
+    categoria: 'Ahorro',
+    descripcion: `Abono meta: ${meta.nombre}`,
+    monto: cantidad,
+    cuenta: meta.cuenta || 'General'
+  });
+
+  return { montoActual: nuevo, estado, monto: cantidad, tx };
 }
 
 export async function abonarMesMeta(id) {
@@ -211,7 +244,7 @@ export async function abonarMesMeta(id) {
 
   const tx = await addTransaccion({
     fecha: new Date().toISOString().slice(0, 10),
-    tipo: 'gasto',
+    tipo: 'ahorro',
     categoria: 'Ahorro',
     descripcion: `Abono meta: ${meta.nombre}`,
     monto: cuota,

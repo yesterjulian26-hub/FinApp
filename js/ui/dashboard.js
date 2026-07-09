@@ -12,24 +12,23 @@ export async function loadDashboard() {
     return true;
   });
 
-  let ingresos = 0, gastos = 0, pagos = 0;
+  let ingresos = 0, gastos = 0, pagos = 0, ahorro = 0;
   const porCat = {};
   data.forEach(t => {
     const m = parseMonto(t.monto);
     if (esTipo(t.tipo, 'ingreso')) ingresos += m;
     else if (esTipo(t.tipo, 'pago')) { pagos += m; porCat[t.categoria] = (porCat[t.categoria] || 0) + m; }
+    else if (esTipo(t.tipo, 'ahorro')) { ahorro += m; porCat[t.categoria] = (porCat[t.categoria] || 0) + m; }
     else { gastos += m; porCat[t.categoria] = (porCat[t.categoria] || 0) + m; }
   });
-  const balance = ingresos - gastos - pagos;
+  const balance = ingresos - gastos - pagos - ahorro;
   const tasa = ingresos > 0 ? ((balance / ingresos) * 100).toFixed(0) : 0;
-
-  const ahorroMes = porCat['Ahorro'] || 0;
 
   animateValue(document.getElementById('kpiIngresos'), 0, ingresos, 600);
   animateValue(document.getElementById('kpiGastos'), 0, gastos, 600);
   animateValue(document.getElementById('kpiPagos'), 0, pagos, 600);
   animateValue(document.getElementById('kpiBalance'), 0, balance, 600);
-  animateValue(document.getElementById('kpiAhorroMonto'), 0, ahorroMes, 600);
+  animateValue(document.getElementById('kpiAhorroMonto'), 0, ahorro, 600);
 
   const balEl = document.getElementById('kpiBalance');
   if (balEl) balEl.className = 'value ' + (balance >= 0 ? 'green' : 'red');

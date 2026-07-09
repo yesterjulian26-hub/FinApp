@@ -33,40 +33,76 @@ export async function loadMetas(skipFetch) {
       <div class="progress-pct">${pct.toFixed(0)}%</div>
       <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
         ${!isComplete && meses > 0 ? `<button class="btn btn-primary btn-sm" ${yaAbonoEsteMes ? 'disabled' : ''} onclick="window.abonarMesMeta('${m.id}')">${yaAbonoEsteMes ? '✓ Mes abonado' : `+ Abonar mes (${FMT.format(mensualidad)})`}</button>` : ''}
-        ${!isComplete && meses === 0 ? `<button class="btn btn-primary btn-sm" onclick="window.abonarMeta('${m.id}')">+ Abonar</button>` : ''}
+        ${!isComplete ? `<button class="btn btn-secondary btn-sm" onclick="window.abonarMontoMeta('${m.id}')">+ Monto personalizado</button>` : ''}
+        <button class="btn-icon" onclick="window.openMetaModal('${m.id}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="window.deleteMeta('${m.id}')">🗑️</button>
       </div>
     </div>`;
   }).join('');
 }
 
+function refreshDashboardIfActive() {
+  if (document.getElementById('page-dashboard')?.classList.contains('active')) {
+    window.loadDashboard?.();
+  }
+}
+
+window.openMetaModal = function (id) {
+  const meta = id ? metasCache.find(m => m.id === id) : null;
+  document.getElementById('metaEditId').value = id || '';
+  document.getElementById('metaNombre').value = meta ? meta.nombre : '';
+  document.getElementById('metaMonto').value = meta ? parseMonto(meta.montoObjetivo) : '';
+  document.getElementById('metaMeses').value = meta ? (meta.meses || '') : '';
+  document.getElementById('metaFecha').value = meta ? (meta.fechaLimite || '') : '';
+  document.getElementById('metaCuenta').value = meta ? (meta.cuenta || 'General') : 'General';
+  document.getElementById('modalMetaTitle').textContent = meta ? 'Editar Meta de Ahorro' : 'Nueva Meta de Ahorro';
+  openModal('modalMeta');
+};
+
 window.saveMeta = async function () {
+  const id = document.getElementById('metaEditId').value;
   const nombre = document.getElementById('metaNombre').value;
   const montoObjetivo = document.getElementById('metaMonto').value;
   const meses = document.getElementById('metaMeses').value;
   const fechaLimite = document.getElementById('metaFecha').value;
   const cuenta = document.getElementById('metaCuenta').value;
   if (!nombre || !montoObjetivo || !meses) { toast('Completa nombre, monto y meses'); return; }
-  const meta = await DB.addMeta({ nombre, montoObjetivo, meses, fechaLimite, cuenta });
-  metasCache.push(meta);
-  closeModal('modalMeta');
-  toast('Meta creada');
-  if (meta.categoriaAhorro) {
-    state.categorias.push(meta.categoriaAhorro);
-    state.categorias.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    populateSelects();
+
+  if (id) {
+    const updated = await DB.editarMeta(id, { nombre, montoObjetivo, meses, fechaLimite, cuenta });
+    const meta = metasCache.find(m => m.id === id);
+    if (meta) Object.assign(meta, updated);
+    toast('Meta actualizada');
+  } else {
+    const meta = await DB.addMeta({ nombre, montoObjetivo, meses, fechaLimite, cuenta });
+    metasCache.push(meta);
+    toast('Meta creada');
+    if (meta.categoriaAhorro) {
+      state.categorias.push(meta.categoriaAhorro);
+      state.categorias.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      populateSelects();
+    }
   }
+  closeModal('modalMeta');
   loadMetas(true);
 };
 
-window.abonarMeta = async function (id) {
+window.abonarMontoMeta = async function (id) {
   const monto = prompt('Monto a abonar:');
-  if (!monto || isNaN(monto)) return;
-  const result = await DB.abonarMeta(id, monto);
-  const meta = metasCache.find(m => m.id === id);
-  if (meta) Object.assign(meta, { montoActual: result.montoActual, estado: result.estado });
-  toast(result.estado === 'Completada' ? 'Meta completada!' : 'Abono registrado');
-  loadMetas(true);
+  if (monto === null) return;
+  const cantidad = parseFloat(monto);
+  if (!cantidad || cantidad <= 0) { toast('Monto inválido'); return; }
+  try {
+    const result = await DB.abonarMontoMeta(id, cantidad);
+    const meta = metasCache.find(m => m.id === id);
+    if (meta) Object.assign(meta, { montoActual: result.montoActual, estado: result.estado });
+    if (result.tx) state.transacciones.push(result.tx);
+    toast(result.estado === 'Completada' ? '🎉 Meta completada!' : `Abono de ${FMT.format(result.monto)} registrado`);
+    loadMetas(true);
+    refreshDashboardIfActive();
+  } catch (err) {
+    toast(err.message);
+  }
 };
 
 window.abonarMesMeta = async function (id) {
@@ -82,9 +118,7 @@ window.abonarMesMeta = async function (id) {
     if (result.tx) state.transacciones.push(result.tx);
     toast(result.estado === 'Completada' ? '🎉 Meta completada!' : `Abono de ${FMT.format(result.cuota)} registrado`);
     loadMetas(true);
-    if (document.getElementById('page-dashboard')?.classList.contains('active')) {
-      window.loadDashboard?.();
-    }
+    refreshDashboardIfActive();
   } catch (err) {
     toast(err.message);
   }
