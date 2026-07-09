@@ -517,13 +517,15 @@
         <div class="form-group"><label>Cuenta</label><select id="prestCuenta" data-account-select></select></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Monto total (RD$)</label><input type="number" id="prestMonto" min="0" step="0.01"></div>
-        <div class="form-group"><label>Cantidad de cuotas</label><input type="number" id="prestCuotas" min="1"></div>
+        <div class="form-group"><label>Monto total (RD$)</label><input type="number" id="prestMonto" min="0" step="0.01" oninput="window.actualizarPrestamoCalculo()"></div>
+        <div class="form-group"><label>Cantidad de cuotas</label><input type="number" id="prestCuotas" min="1" oninput="window.actualizarPrestamoCalculo()"></div>
       </div>
       <div class="form-row">
+        <div class="form-group"><label>Monto por cuota (RD$)</label><input type="number" id="prestMontoCuota" min="0" step="0.01" placeholder="Se sugiere automáticamente" oninput="this.dataset.edited='true'; window.actualizarPrestamoCalculo()"></div>
         <div class="form-group"><label>Fecha inicio</label><input type="date" id="prestFecha"></div>
-        <div class="form-group"><label>Descripción</label><input type="text" id="prestDesc"></div>
       </div>
+      <div id="prestInteresInfo" style="font-size:12px;color:var(--text2);margin-bottom:12px"></div>
+      <div class="form-group"><label>Descripción</label><input type="text" id="prestDesc"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="window.closeModal('modalPrestamo')">Cancelar</button>
         <button class="btn btn-primary" onclick="window.savePrestamo()">Guardar</button>

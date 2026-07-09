@@ -369,6 +369,8 @@ export async function addPrestamo(p) {
   const ref = col('prestamos').doc(id);
   await ref.set({
     nombre: p.nombre || 'Prestamo',
+    tipo: p.tipo || 'Debo',
+    descripcion: p.descripcion || '',
     montoTotal, montoCuota, cuotas: numCuotas,
     cuotasPagadas: 0, tasaMensual: parseFloat(tasaMensual.toFixed(2)),
     fechaInicio, cuenta: p.cuenta || '', estado: 'Activo',
