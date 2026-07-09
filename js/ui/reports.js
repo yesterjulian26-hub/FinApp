@@ -6,7 +6,7 @@ export async function loadReportes() {
   const txs = state.transacciones.filter(t => fechaToMes(t.fecha) === mes);
 
   const ingresos = txs.filter(t => esTipo(t.tipo, 'ingreso')).reduce((s, t) => s + parseMonto(t.monto), 0);
-  const gastos = txs.filter(t => esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago')).reduce((s, t) => s + parseMonto(t.monto), 0);
+  const gastos = txs.filter(t => esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago') || esTipo(t.tipo, 'ahorro')).reduce((s, t) => s + parseMonto(t.monto), 0);
   const balance = ingresos - gastos;
   const tasa = ingresos > 0 ? ((ingresos - gastos) / ingresos * 100) : 0;
 
@@ -17,7 +17,7 @@ export async function loadReportes() {
   document.getElementById('repTasa').textContent = tasa.toFixed(1) + '%';
 
   const byCategoria = {};
-  txs.filter(t => esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago')).forEach(t => {
+  txs.filter(t => esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago') || esTipo(t.tipo, 'ahorro')).forEach(t => {
     byCategoria[t.categoria] = (byCategoria[t.categoria] || 0) + parseMonto(t.monto);
   });
 
@@ -60,7 +60,7 @@ function renderTrendChart(currentMes) {
     state.transacciones.filter(t => fechaToMes(t.fecha) === mes && esTipo(t.tipo, 'ingreso'))
       .reduce((s, t) => s + parseMonto(t.monto), 0));
   const gasData = months.map(mes =>
-    state.transacciones.filter(t => fechaToMes(t.fecha) === mes && (esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago')))
+    state.transacciones.filter(t => fechaToMes(t.fecha) === mes && (esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago') || esTipo(t.tipo, 'ahorro')))
       .reduce((s, t) => s + parseMonto(t.monto), 0));
 
   const maxVal = Math.max(...ingData, ...gasData, 1);
@@ -112,7 +112,7 @@ function renderInsights(mes, ingresos, gastos, sorted) {
   let pm = m - 1, py = y;
   if (pm <= 0) { pm = 12; py--; }
   const prevMes = `${py}-${String(pm).padStart(2, '0')}`;
-  const prevGastos = state.transacciones.filter(t => fechaToMes(t.fecha) === prevMes && (esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago')))
+  const prevGastos = state.transacciones.filter(t => fechaToMes(t.fecha) === prevMes && (esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago') || esTipo(t.tipo, 'ahorro')))
     .reduce((s, t) => s + parseMonto(t.monto), 0);
   if (prevGastos > 0) {
     const diff = ((gastos - prevGastos) / prevGastos * 100).toFixed(0);

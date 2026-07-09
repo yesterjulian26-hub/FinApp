@@ -446,7 +446,7 @@ export async function transferir(t) {
 
 export async function getPreferencias() {
   const profile = await getProfile();
-  return profile?.preferencias || { resumenSemanal: false, recordatorioCuotas: false, alertaPresupuesto: false };
+  return profile?.preferencias || {};
 }
 
 export async function savePreferencias(prefs) {

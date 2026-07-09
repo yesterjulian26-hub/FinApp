@@ -11,7 +11,7 @@ export async function loadProyeccion() {
   }
 
   const ingHist = months.map(m => txs.filter(t => fechaToMes(t.fecha) === m && esTipo(t.tipo, 'ingreso')).reduce((s, t) => s + parseMonto(t.monto), 0));
-  const gasHist = months.map(m => txs.filter(t => fechaToMes(t.fecha) === m && (esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago'))).reduce((s, t) => s + parseMonto(t.monto), 0));
+  const gasHist = months.map(m => txs.filter(t => fechaToMes(t.fecha) === m && (esTipo(t.tipo, 'gasto') || esTipo(t.tipo, 'pago') || esTipo(t.tipo, 'ahorro'))).reduce((s, t) => s + parseMonto(t.monto), 0));
 
   const avgIng = ingHist.reduce((a, b) => a + b, 0) / Math.max(ingHist.filter(v => v > 0).length, 1);
   const avgGas = gasHist.reduce((a, b) => a + b, 0) / Math.max(gasHist.filter(v => v > 0).length, 1);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finapp-v8';
+const CACHE_NAME = 'finapp-v10';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -19,7 +19,6 @@ const STATIC_ASSETS = [
   '/js/ui/reports.js',
   '/js/ui/projection.js',
   '/js/ui/report-pdf.js',
-  '/js/ui/notifications.js',
   '/js/ui/ai-chat.js',
   '/js/ui/settings.js'
 ];

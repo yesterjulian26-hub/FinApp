@@ -94,7 +94,6 @@
       <button class="nav-item" data-page="recurrentes" onclick="window.goTo('recurrentes')"><span class="icon">🔄</span> Recurrentes</button>
       <button class="nav-item" data-page="reportes" onclick="window.goTo('reportes')"><span class="icon">📈</span> Reportes</button>
       <button class="nav-item" data-page="proyeccion" onclick="window.goTo('proyeccion')"><span class="icon">📉</span> Proyección</button>
-      <button class="nav-item" data-page="notificaciones" onclick="window.goTo('notificaciones')"><span class="icon">🔔</span> Notificaciones</button>
       <button class="nav-item" data-page="settings" onclick="window.goTo('settings')"><span class="icon">⚙️</span> Ajustes</button>
     </nav>
     <div class="sidebar-footer">
@@ -282,36 +281,6 @@
     <div class="card">
       <h3 style="margin-bottom:12px;font-weight:700">Insights</h3>
       <div class="insights-grid" id="projInsights"></div>
-    </div>
-  </section>
-
-  <!-- NOTIFICACIONES -->
-  <section class="page" id="page-notificaciones">
-    <div class="page-header"><h2 class="page-title">Notificaciones</h2></div>
-    <div class="card" style="max-width:600px;margin:0 auto">
-      <h3 style="margin-bottom:4px;font-weight:700">Recordatorios por email</h3>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:20px">Configura qué notificaciones quieres recibir.</p>
-      <label class="notif-toggle">
-        <input type="checkbox" id="notifRecurrentes" onchange="window.saveNotificaciones()">
-        <div class="notif-info"><strong>🔄 Recurrentes pendientes</strong><span>Aviso cuando hay pagos recurrentes por procesar.</span></div>
-      </label>
-      <label class="notif-toggle">
-        <input type="checkbox" id="notifPresupuestos" onchange="window.saveNotificaciones()">
-        <div class="notif-info"><strong>⚠️ Alerta de presupuesto</strong><span>Aviso cuando un presupuesto alcance el 80% del límite.</span></div>
-      </label>
-      <label class="notif-toggle">
-        <input type="checkbox" id="notifMetas" onchange="window.saveNotificaciones()">
-        <div class="notif-info"><strong>🎯 Progreso de metas</strong><span>Resumen del avance de tus metas de ahorro.</span></div>
-      </label>
-      <label class="notif-toggle">
-        <input type="checkbox" id="notifPrestamos" onchange="window.saveNotificaciones()">
-        <div class="notif-info"><strong>🏧 Cuotas próximas</strong><span>Aviso cuando tengas cuotas por vencer en 7 días.</span></div>
-      </label>
-      <label class="notif-toggle">
-        <input type="checkbox" id="notifResumen" onchange="window.saveNotificaciones()">
-        <div class="notif-info"><strong>📊 Resumen semanal</strong><span>Resumen cada lunes con tus ingresos, gastos y balance.</span></div>
-      </label>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px" onclick="window.saveNotificaciones()">Guardar preferencias</button>
     </div>
   </section>
 

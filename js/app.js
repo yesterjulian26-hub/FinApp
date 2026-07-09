@@ -12,7 +12,6 @@ import { loadRecurrentes } from './ui/recurring.js';
 import { loadReportes } from './ui/reports.js';
 import { loadProyeccion } from './ui/projection.js';
 import { generatePDF } from './ui/report-pdf.js';
-import { loadNotificaciones } from './ui/notifications.js';
 import { loadChat } from './ui/ai-chat.js';
 import { loadSettings } from './ui/settings.js';
 
@@ -104,7 +103,6 @@ const loaders = {
   recurrentes: loadRecurrentes,
   reportes: loadReportes,
   proyeccion: loadProyeccion,
-  notificaciones: loadNotificaciones,
   settings: loadSettings,
   chat: loadChat
 };
