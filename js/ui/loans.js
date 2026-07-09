@@ -63,8 +63,7 @@ window.deletePrestamo = async function (id) {
 };
 
 window.verCuotas = async function (id) {
-  const prestamos = await DB.getPrestamos();
-  const p = prestamos.find(x => x.id === id);
+  const p = await DB.getPrestamo(id);
   if (!p) return;
   const cuotas = (p.cuotas_detalle || []).sort((a, b) => (a.fechaVencimiento || '').localeCompare(b.fechaVencimiento || ''));
   document.getElementById('cuotasPrestId').value = id;
@@ -85,8 +84,8 @@ window.verCuotas = async function (id) {
 };
 
 window.pagarCuotaBtn = async function (prestId, cuotaId) {
-  await DB.pagarCuota(prestId, cuotaId);
-  state.transacciones = await DB.getTransacciones();
+  const result = await DB.pagarCuota(prestId, cuotaId);
+  if (result.tx) state.transacciones.push(result.tx);
   toast('Cuota pagada');
   window.verCuotas(prestId);
   loadPrestamos();

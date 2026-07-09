@@ -88,8 +88,8 @@ window.saveTx = async function () {
     monto: document.getElementById('txMonto').value
   };
   if (!p.monto || !p.categoria) { toast('Completa los campos'); return; }
-  await DB.addTransaccion(p);
-  state.transacciones = await DB.getTransacciones();
+  const tx = await DB.addTransaccion(p);
+  state.transacciones.push(tx);
   closeModal('modalTx');
   toast('Transaccion guardada');
   loadTransacciones();
@@ -112,15 +112,17 @@ window.txEdit = function (id) {
 
 window.saveEditTx = async function () {
   const id = document.getElementById('editTxId').value;
-  await DB.editTransaccion(id, {
+  const changes = {
     fecha: document.getElementById('editTxFecha').value,
     tipo: document.getElementById('editTxTipo').value,
     categoria: document.getElementById('editTxCategoria').value,
     cuenta: document.getElementById('editTxCuenta').value,
     descripcion: document.getElementById('editTxDescripcion').value,
     monto: document.getElementById('editTxMonto').value
-  });
-  state.transacciones = await DB.getTransacciones();
+  };
+  await DB.editTransaccion(id, changes);
+  const tx = state.transacciones.find(t => t.id === id);
+  if (tx) Object.assign(tx, changes, { monto: parseFloat(changes.monto) || 0 });
   closeModal('modalEditTx');
   toast('Transaccion actualizada');
   loadTransacciones();
@@ -129,7 +131,7 @@ window.saveEditTx = async function () {
 window.txDelete = async function (id) {
   if (!confirm('Eliminar esta transaccion?')) return;
   await DB.deleteTransaccion(id);
-  state.transacciones = await DB.getTransacciones();
+  state.transacciones = state.transacciones.filter(t => t.id !== id);
   toast('Eliminada');
   loadTransacciones();
 };

@@ -2,8 +2,8 @@ import { state, populateSelects } from '../app.js';
 import * as DB from '../db.js';
 import { toast, openModal, closeModal } from '../utils.js';
 
-export async function loadCategorias() {
-  state.categorias = await DB.getCategorias();
+export async function loadCategorias(skipFetch) {
+  if (!skipFetch) state.categorias = await DB.getCategorias();
   const tbody = document.getElementById('catBody');
   if (!tbody) return;
 
@@ -24,18 +24,21 @@ window.saveCat = async function () {
   const nombre = document.getElementById('catNombre').value;
   const tipo = document.getElementById('catTipo').value;
   if (!nombre) { toast('Ingresa un nombre'); return; }
-  await DB.addCategoria({ nombre, tipo });
+  const cat = await DB.addCategoria({ nombre, tipo });
+  state.categorias.push(cat);
+  state.categorias.sort((a, b) => a.nombre.localeCompare(b.nombre));
   closeModal('modalCat');
   toast('Categoria creada');
   document.getElementById('catNombre').value = '';
-  loadCategorias();
+  loadCategorias(true);
 };
 
 window.deleteCat = async function (id) {
   if (!confirm('Eliminar esta categoria?')) return;
   await DB.deleteCategoria(id);
+  state.categorias = state.categorias.filter(c => c.id !== id);
   toast('Eliminada');
-  loadCategorias();
+  loadCategorias(true);
 };
 
 window.openCatEdit = function (id, nombre, icono, color) {
@@ -48,13 +51,16 @@ window.openCatEdit = function (id, nombre, icono, color) {
 
 window.saveCatEdit = async function () {
   const id = document.getElementById('catEditId').value;
-  await DB.updateCategoria(id, {
+  const changes = {
     icono: document.getElementById('catEditIcono').value,
     color: document.getElementById('catEditColor').value
-  });
+  };
+  await DB.updateCategoria(id, changes);
+  const cat = state.categorias.find(c => c.id === id);
+  if (cat) Object.assign(cat, changes);
   closeModal('modalCatEdit');
   toast('Categoria personalizada');
-  loadCategorias();
+  loadCategorias(true);
 };
 
 window.loadCategorias = loadCategorias;

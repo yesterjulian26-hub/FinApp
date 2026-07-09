@@ -2,8 +2,8 @@ import { state, populateSelects } from '../app.js';
 import * as DB from '../db.js';
 import { FMT, parseMonto, esTipo, toast, openModal, closeModal, CUENTA_ICONS } from '../utils.js';
 
-export async function loadCuentas() {
-  state.cuentas = await DB.getCuentas();
+export async function loadCuentas(skipFetch) {
+  if (!skipFetch) state.cuentas = await DB.getCuentas();
   const grid = document.getElementById('cuentasGrid');
   if (!grid) return;
   if (state.cuentas.length === 0) {
@@ -36,17 +36,20 @@ window.saveCuenta = async function () {
   const tipo = document.getElementById('cuentaTipo').value;
   const saldoInicial = document.getElementById('cuentaSaldo').value || '0';
   if (!nombre) { toast('Ingresa un nombre'); return; }
-  await DB.addCuenta({ nombre, tipo, saldoInicial });
+  const cuenta = await DB.addCuenta({ nombre, tipo, saldoInicial });
+  state.cuentas.push(cuenta);
+  state.cuentas.sort((a, b) => a.nombre.localeCompare(b.nombre));
   closeModal('modalCuenta');
   toast('Cuenta creada');
-  loadCuentas();
+  loadCuentas(true);
 };
 
 window.deleteCuenta = async function (id) {
   if (!confirm('Eliminar esta cuenta?')) return;
   await DB.deleteCuenta(id);
+  state.cuentas = state.cuentas.filter(c => c.id !== id);
   toast('Eliminada');
-  loadCuentas();
+  loadCuentas(true);
 };
 
 window.openTransferencia = function () {
@@ -65,11 +68,11 @@ window.saveTransferencia = async function () {
   if (!origen || !destino) { toast('Selecciona origen y destino'); return; }
   if (origen === destino) { toast('Deben ser diferentes'); return; }
   if (!monto || parseFloat(monto) <= 0) { toast('Monto invalido'); return; }
-  await DB.transferir({ origen, destino, monto, fecha, descripcion });
-  state.transacciones = await DB.getTransacciones();
+  const [txSalida, txEntrada] = await DB.transferir({ origen, destino, monto, fecha, descripcion });
+  state.transacciones.push(txSalida, txEntrada);
   closeModal('modalTransferir');
   toast('Transferencia registrada');
-  loadCuentas();
+  loadCuentas(true);
 };
 
 window.loadCuentas = loadCuentas;

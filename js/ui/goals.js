@@ -2,8 +2,11 @@ import { state, populateSelects } from '../app.js';
 import * as DB from '../db.js';
 import { FMT, formatDate, getCurrentMonth, parseMonto, toast, openModal, closeModal } from '../utils.js';
 
-export async function loadMetas() {
-  const metas = await DB.getMetas();
+let metasCache = [];
+
+export async function loadMetas(skipFetch) {
+  if (!skipFetch) metasCache = await DB.getMetas();
+  const metas = metasCache;
   const grid = document.getElementById('metasGrid');
   if (!grid) return;
   if (metas.length === 0) {
@@ -44,28 +47,41 @@ window.saveMeta = async function () {
   const fechaLimite = document.getElementById('metaFecha').value;
   const cuenta = document.getElementById('metaCuenta').value;
   if (!nombre || !montoObjetivo || !meses) { toast('Completa nombre, monto y meses'); return; }
-  await DB.addMeta({ nombre, montoObjetivo, meses, fechaLimite, cuenta });
+  const meta = await DB.addMeta({ nombre, montoObjetivo, meses, fechaLimite, cuenta });
+  metasCache.push(meta);
   closeModal('modalMeta');
   toast('Meta creada');
-  state.categorias = await DB.getCategorias();
-  populateSelects();
-  loadMetas();
+  if (meta.categoriaAhorro) {
+    state.categorias.push(meta.categoriaAhorro);
+    state.categorias.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    populateSelects();
+  }
+  loadMetas(true);
 };
 
 window.abonarMeta = async function (id) {
   const monto = prompt('Monto a abonar:');
   if (!monto || isNaN(monto)) return;
   const result = await DB.abonarMeta(id, monto);
+  const meta = metasCache.find(m => m.id === id);
+  if (meta) Object.assign(meta, { montoActual: result.montoActual, estado: result.estado });
   toast(result.estado === 'Completada' ? 'Meta completada!' : 'Abono registrado');
-  loadMetas();
+  loadMetas(true);
 };
 
 window.abonarMesMeta = async function (id) {
   try {
     const result = await DB.abonarMesMeta(id);
-    state.transacciones = await DB.getTransacciones();
+    const meta = metasCache.find(m => m.id === id);
+    if (meta) Object.assign(meta, {
+      montoActual: result.montoActual,
+      estado: result.estado,
+      mesesAbonados: result.mesesAbonados,
+      ultimoAbonoMes: getCurrentMonth()
+    });
+    if (result.tx) state.transacciones.push(result.tx);
     toast(result.estado === 'Completada' ? '🎉 Meta completada!' : `Abono de ${FMT.format(result.cuota)} registrado`);
-    loadMetas();
+    loadMetas(true);
     if (document.getElementById('page-dashboard')?.classList.contains('active')) {
       window.loadDashboard?.();
     }
@@ -77,8 +93,9 @@ window.abonarMesMeta = async function (id) {
 window.deleteMeta = async function (id) {
   if (!confirm('Eliminar esta meta?')) return;
   await DB.deleteMeta(id);
+  metasCache = metasCache.filter(m => m.id !== id);
   toast('Eliminada');
-  loadMetas();
+  loadMetas(true);
 };
 
 window.loadMetas = loadMetas;

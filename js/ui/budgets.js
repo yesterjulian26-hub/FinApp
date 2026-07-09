@@ -2,9 +2,12 @@ import { state } from '../app.js';
 import * as DB from '../db.js';
 import { FMT, getCurrentMonth, fechaToMes, parseMonto, esTipo, toast, openModal, closeModal } from '../utils.js';
 
-export async function loadPresupuestos() {
+let presupuestosCache = [];
+
+export async function loadPresupuestos(skipFetch) {
   const mes = document.getElementById('presMes')?.value || getCurrentMonth();
-  const presupuestos = await DB.getPresupuestos();
+  if (!skipFetch) presupuestosCache = await DB.getPresupuestos();
+  const presupuestos = presupuestosCache;
 
   const txs = state.transacciones.filter(t => fechaToMes(t.fecha) === mes);
   const spent = {};
@@ -39,17 +42,20 @@ window.savePres = async function () {
   const categoria = document.getElementById('presCat').value;
   const montoLimite = document.getElementById('presLimite').value;
   if (!montoLimite || !categoria) { toast('Completa los campos'); return; }
-  await DB.addPresupuesto({ categoria, montoLimite });
+  const pres = await DB.addPresupuesto({ categoria, montoLimite });
+  const idx = presupuestosCache.findIndex(p => p.id === pres.id);
+  if (idx >= 0) presupuestosCache[idx] = pres; else presupuestosCache.push(pres);
   closeModal('modalPres');
   toast('Presupuesto creado');
-  loadPresupuestos();
+  loadPresupuestos(true);
 };
 
 window.deletePres = async function (id) {
   if (!confirm('Eliminar este presupuesto?')) return;
   await DB.deletePresupuesto(id);
+  presupuestosCache = presupuestosCache.filter(p => p.id !== id);
   toast('Eliminado');
-  loadPresupuestos();
+  loadPresupuestos(true);
 };
 
 window.loadPresupuestos = loadPresupuestos;

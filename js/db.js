@@ -34,8 +34,9 @@ async function getDoc(collection, id) {
 
 async function addDoc(collection, data) {
   const id = generateId();
-  await col(collection).doc(id).set({ ...data, createdAt: Date.now() });
-  return id;
+  const doc = { ...data, createdAt: Date.now() };
+  await col(collection).doc(id).set(doc);
+  return { id, ...doc };
 }
 
 async function updateDoc(collection, id, data) {
@@ -115,15 +116,14 @@ export async function getPresupuestos() {
 }
 
 export async function addPresupuesto(p) {
+  const montoLimite = parseFloat(p.montoLimite) || 0;
   const existing = await col('presupuestos').where('categoria', '==', p.categoria).get();
   if (!existing.empty) {
-    await updateDoc('presupuestos', existing.docs[0].id, { montoLimite: parseFloat(p.montoLimite) || 0 });
-    return existing.docs[0].id;
+    const id = existing.docs[0].id;
+    await updateDoc('presupuestos', id, { montoLimite });
+    return { id, categoria: p.categoria, montoLimite };
   }
-  return addDoc('presupuestos', {
-    categoria: p.categoria,
-    montoLimite: parseFloat(p.montoLimite) || 0
-  });
+  return addDoc('presupuestos', { categoria: p.categoria, montoLimite });
 }
 
 export async function deletePresupuesto(id) {
@@ -162,11 +162,12 @@ export async function getMetas() {
 export async function addMeta(m) {
   const montoObjetivo = parseFloat(m.montoObjetivo) || 0;
   const meses = parseInt(m.meses) || 0;
+  let categoriaAhorro = null;
   const cats = await getCategorias();
   if (!cats.find(c => c.nombre === 'Ahorro')) {
-    await addCategoria({ tipo: 'gasto', nombre: 'Ahorro', icono: '💰' });
+    categoriaAhorro = await addCategoria({ tipo: 'gasto', nombre: 'Ahorro', icono: '💰' });
   }
-  return addDoc('metas', {
+  const meta = await addDoc('metas', {
     nombre: m.nombre,
     montoObjetivo,
     montoActual: 0,
@@ -178,6 +179,7 @@ export async function addMeta(m) {
     fechaLimite: m.fechaLimite || '',
     estado: 'Activa'
   });
+  return { ...meta, categoriaAhorro };
 }
 
 export async function updateMeta(id, data) {
@@ -207,7 +209,7 @@ export async function abonarMesMeta(id) {
   const estado = nuevo >= meta.montoObjetivo ? 'Completada' : 'Activa';
   await updateDoc('metas', id, { montoActual: nuevo, mesesAbonados, estado, ultimoAbonoMes: mesActual });
 
-  await addTransaccion({
+  const tx = await addTransaccion({
     fecha: new Date().toISOString().slice(0, 10),
     tipo: 'gasto',
     categoria: 'Ahorro',
@@ -216,7 +218,7 @@ export async function abonarMesMeta(id) {
     cuenta: meta.cuenta || 'General'
   });
 
-  return { montoActual: nuevo, estado, cuota, mesesAbonados };
+  return { montoActual: nuevo, estado, cuota, mesesAbonados, tx };
 }
 
 export async function deleteMeta(id) {
@@ -293,12 +295,21 @@ export async function processRecurrentes() {
 
 export async function getPrestamos() {
   const prestamos = await getAll('prestamos');
-  for (const pr of prestamos) {
+  await Promise.all(prestamos.map(async pr => {
     if (!pr.estado) pr.estado = 'Activo';
     const cuotasSnap = await col('prestamos').doc(pr.id).collection('cuotas').orderBy('numero').get();
     pr.cuotas_detalle = cuotasSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  }
+  }));
   return prestamos;
+}
+
+export async function getPrestamo(id) {
+  const pr = await getDoc('prestamos', id);
+  if (!pr) return null;
+  if (!pr.estado) pr.estado = 'Activo';
+  const cuotasSnap = await col('prestamos').doc(id).collection('cuotas').orderBy('numero').get();
+  pr.cuotas_detalle = cuotasSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return pr;
 }
 
 export async function addPrestamo(p) {
@@ -360,13 +371,13 @@ export async function pagarCuota(prestamoId, cuotaId) {
   if (pagadas >= pr.cuotas) updates.estado = 'Completado';
   await prRef.update(updates);
 
-  await addTransaccion({
+  const tx = await addTransaccion({
     fecha: hoy, tipo: 'gasto', categoria: 'Prestamo',
     descripcion: `${pr.nombre} (cuota ${cDoc.data().numero}/${pr.cuotas})`,
     monto: String(pr.montoCuota), cuenta: pr.cuenta
   });
 
-  return { cuotasPagadas: pagadas, totalCuotas: pr.cuotas };
+  return { cuotasPagadas: pagadas, totalCuotas: pr.cuotas, tx };
 }
 
 export async function updateFechaCuota(prestamoId, cuotaId, fecha) {
@@ -379,8 +390,9 @@ export async function transferir(t) {
   const fecha = t.fecha || new Date().toISOString().slice(0, 10);
   const desc = t.descripcion || `Transferencia ${t.origen} → ${t.destino}`;
   const monto = parseFloat(t.monto);
-  await addTransaccion({ fecha, tipo: 'gasto', categoria: 'Transferencia', descripcion: desc, monto: String(monto), cuenta: t.origen });
-  await addTransaccion({ fecha, tipo: 'ingreso', categoria: 'Transferencia', descripcion: desc, monto: String(monto), cuenta: t.destino });
+  const txSalida = await addTransaccion({ fecha, tipo: 'gasto', categoria: 'Transferencia', descripcion: desc, monto: String(monto), cuenta: t.origen });
+  const txEntrada = await addTransaccion({ fecha, tipo: 'ingreso', categoria: 'Transferencia', descripcion: desc, monto: String(monto), cuenta: t.destino });
+  return [txSalida, txEntrada];
 }
 
 // ── Preferencias ─────────────────────────────────────────────
