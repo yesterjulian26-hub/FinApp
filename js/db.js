@@ -65,14 +65,16 @@ export async function getTransacciones() {
 }
 
 export async function addTransaccion(tx) {
-  return addDoc('transacciones', {
+  const data = {
     fecha: tx.fecha,
     tipo: tx.tipo,
     categoria: tx.categoria,
     descripcion: tx.descripcion || '',
     monto: parseFloat(tx.monto) || 0,
     cuenta: tx.cuenta || 'General'
-  });
+  };
+  if (tx.metaId) data.metaId = tx.metaId;
+  return addDoc('transacciones', data);
 }
 
 export async function editTransaccion(id, tx) {
@@ -222,7 +224,8 @@ export async function abonarMontoMeta(id, monto) {
     categoria: 'Ahorro',
     descripcion: `Abono meta: ${meta.nombre}`,
     monto: cantidad,
-    cuenta: meta.cuenta || 'General'
+    cuenta: meta.cuenta || 'General',
+    metaId: id
   });
 
   return { montoActual: nuevo, estado, monto: cantidad, tx };
@@ -248,14 +251,23 @@ export async function abonarMesMeta(id) {
     categoria: 'Ahorro',
     descripcion: `Abono meta: ${meta.nombre}`,
     monto: cuota,
-    cuenta: meta.cuenta || 'General'
+    cuenta: meta.cuenta || 'General',
+    metaId: id
   });
 
   return { montoActual: nuevo, estado, cuota, mesesAbonados, tx };
 }
 
-export async function deleteMeta(id) {
+export async function deleteMeta(id, eliminarAbonos) {
   await deleteDoc('metas', id);
+  if (!eliminarAbonos) return [];
+  const snap = await col('transacciones').where('metaId', '==', id).get();
+  if (snap.empty) return [];
+  const batch = db.batch();
+  const ids = [];
+  snap.docs.forEach(d => { batch.delete(d.ref); ids.push(d.id); });
+  await batch.commit();
+  return ids;
 }
 
 // ── Cuentas ──────────────────────────────────────────────────

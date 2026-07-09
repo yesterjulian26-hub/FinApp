@@ -125,11 +125,22 @@ window.abonarMesMeta = async function (id) {
 };
 
 window.deleteMeta = async function (id) {
-  if (!confirm('Eliminar esta meta?')) return;
-  await DB.deleteMeta(id);
+  const meta = metasCache.find(m => m.id === id);
+  if (!confirm(`Eliminar la meta "${meta?.nombre || ''}"?`)) return;
+
+  let eliminarAbonos = false;
+  if ((meta?.montoActual || 0) > 0) {
+    eliminarAbonos = confirm('¿Eliminar también los abonos ya registrados? Se quitarán del balance.\n\nCancelar para conservarlos como historial.');
+  }
+
+  const idsEliminados = await DB.deleteMeta(id, eliminarAbonos);
   metasCache = metasCache.filter(m => m.id !== id);
-  toast('Eliminada');
+  if (idsEliminados.length) {
+    state.transacciones = state.transacciones.filter(t => !idsEliminados.includes(t.id));
+  }
+  toast(eliminarAbonos ? 'Meta y abonos eliminados' : 'Meta eliminada');
   loadMetas(true);
+  refreshDashboardIfActive();
 };
 
 window.loadMetas = loadMetas;
