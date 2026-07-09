@@ -575,6 +575,16 @@
 
 </div><!-- end appScreen -->
 
-<script type="module" src="js/app.js"></script>
+<script>
+// Fallback: si el módulo falla, mostrar auth screen después de 5s
+setTimeout(function() {
+  var splash = document.getElementById('splashScreen');
+  if (splash && splash.style.display !== 'none') {
+    splash.style.display = 'none';
+    document.getElementById('authScreen').style.display = 'flex';
+  }
+}, 5000);
+</script>
+<script type="module" src="js/app.js" onerror="document.getElementById('splashScreen').style.display='none';document.getElementById('authScreen').style.display='flex';"></script>
 </body>
 </html>
