@@ -136,6 +136,7 @@
       <div class="card kpi"><div class="label">Gastos</div><div class="value red" id="kpiGastos">RD$ 0</div></div>
       <div class="card kpi"><div class="label">Pagos</div><div class="value" id="kpiPagos" style="color:#0984e3">RD$ 0</div></div>
       <div class="card kpi"><div class="label">Balance</div><div class="value" id="kpiBalance">RD$ 0</div></div>
+      <div class="card kpi"><div class="label">💰 Ahorro</div><div class="value" id="kpiAhorroMonto" style="color:#6c5ce7">RD$ 0</div></div>
     </div>
     <div class="chart-grid">
       <div class="card chart-card">
@@ -447,7 +448,11 @@
       <div class="form-group"><label>Nombre</label><input type="text" id="metaNombre" placeholder="Ej: Viaje a Punta Cana"></div>
       <div class="form-row">
         <div class="form-group"><label>Monto objetivo (RD$)</label><input type="number" id="metaMonto" min="0"></div>
-        <div class="form-group"><label>Fecha límite</label><input type="date" id="metaFecha"></div>
+        <div class="form-group"><label>Meses para completar</label><input type="number" id="metaMeses" min="1" placeholder="Ej: 6"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Fecha límite (opcional)</label><input type="date" id="metaFecha"></div>
+        <div class="form-group"><label>Cuenta de origen</label><select id="metaCuenta" data-account-select></select></div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="window.closeModal('modalMeta')">Cancelar</button>

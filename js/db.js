@@ -160,10 +160,21 @@ export async function getMetas() {
 }
 
 export async function addMeta(m) {
+  const montoObjetivo = parseFloat(m.montoObjetivo) || 0;
+  const meses = parseInt(m.meses) || 0;
+  const cats = await getCategorias();
+  if (!cats.find(c => c.nombre === 'Ahorro')) {
+    await addCategoria({ tipo: 'gasto', nombre: 'Ahorro', icono: '💰' });
+  }
   return addDoc('metas', {
     nombre: m.nombre,
-    montoObjetivo: parseFloat(m.montoObjetivo) || 0,
+    montoObjetivo,
     montoActual: 0,
+    meses,
+    montoMensual: meses > 0 ? +(montoObjetivo / meses).toFixed(2) : 0,
+    mesesAbonados: 0,
+    ultimoAbonoMes: '',
+    cuenta: m.cuenta || 'General',
     fechaLimite: m.fechaLimite || '',
     estado: 'Activa'
   });
@@ -180,6 +191,32 @@ export async function abonarMeta(id, monto) {
   const estado = nuevo >= meta.montoObjetivo ? 'Completada' : 'Activa';
   await updateDoc('metas', id, { montoActual: nuevo, estado });
   return { montoActual: nuevo, estado };
+}
+
+export async function abonarMesMeta(id) {
+  const meta = await getDoc('metas', id);
+  if (!meta) throw new Error('Meta no encontrada');
+  if (meta.estado === 'Completada') throw new Error('Esta meta ya fue completada');
+  const cuota = parseFloat(meta.montoMensual) || 0;
+  if (cuota <= 0) throw new Error('Esta meta no tiene cuota mensual configurada');
+  const mesActual = new Date().toISOString().slice(0, 7);
+  if (meta.ultimoAbonoMes === mesActual) throw new Error('Ya abonaste el mes de ' + mesActual);
+
+  const nuevo = (meta.montoActual || 0) + cuota;
+  const mesesAbonados = (meta.mesesAbonados || 0) + 1;
+  const estado = nuevo >= meta.montoObjetivo ? 'Completada' : 'Activa';
+  await updateDoc('metas', id, { montoActual: nuevo, mesesAbonados, estado, ultimoAbonoMes: mesActual });
+
+  await addTransaccion({
+    fecha: new Date().toISOString().slice(0, 10),
+    tipo: 'gasto',
+    categoria: 'Ahorro',
+    descripcion: `Abono meta: ${meta.nombre}`,
+    monto: cuota,
+    cuenta: meta.cuenta || 'General'
+  });
+
+  return { montoActual: nuevo, estado, cuota, mesesAbonados };
 }
 
 export async function deleteMeta(id) {
@@ -366,7 +403,7 @@ export async function seedDefaults() {
     ['gasto', 'Supermercado', '🛒'], ['gasto', 'Comida', '🍔'], ['gasto', 'Transporte', '🚗'],
     ['gasto', 'Entretenimiento', '🎮'], ['gasto', 'Servicios', '📱'], ['gasto', 'Salud', '💊'],
     ['gasto', 'Educacion', '📚'], ['gasto', 'Ropa', '👕'], ['gasto', 'Hogar', '🏠'],
-    ['gasto', 'Suscripciones', '📺'], ['gasto', 'Otros', '📦'],
+    ['gasto', 'Suscripciones', '📺'], ['gasto', 'Ahorro', '💰'], ['gasto', 'Otros', '📦'],
     ['ingreso', 'Salario', '💰'], ['ingreso', 'Freelance', '💻'],
     ['ingreso', 'Inversiones', '📈'], ['ingreso', 'Otros ingresos', '🎁']
   ];
