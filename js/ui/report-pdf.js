@@ -58,7 +58,7 @@ export async function generatePDF() {
   const pagos = txsMes.filter(t => esTipo(t.tipo, 'pago')).reduce((s, t) => s + parseMonto(t.monto), 0);
   const ahorro = txsMes.filter(t => esTipo(t.tipo, 'ahorro')).reduce((s, t) => s + parseMonto(t.monto), 0);
   const balance = ingresos - gastos - pagos - ahorro;
-  const tasaAhorro = ingresos > 0 ? (((ingresos - gastos - pagos - ahorro) / ingresos) * 100) : 0;
+  const pctAhorroIngreso = ingresos > 0 ? (ahorro / ingresos) * 100 : 0;
 
   const byCategoria = {};
   txsMes.filter(t => !esTipo(t.tipo, 'ingreso')).forEach(t => {
@@ -81,7 +81,7 @@ export async function generatePDF() {
   const insights = [];
   if (balance < 0) insights.push('⚠️ Los gastos, pagos y ahorros del mes superaron los ingresos.');
   if (sortedCat.length > 0) insights.push(`💡 La mayor salida de dinero fue en "${sortedCat[0][0]}" con ${FMT.format(sortedCat[0][1])}.`);
-  if (tasaAhorro >= 20) insights.push('🎉 Excelente tasa de ahorro este mes.');
+  if (pctAhorroIngreso >= 20) insights.push('🎉 Excelente tasa de ahorro este mes.');
   else if (ingresos > 0) insights.push('💪 Intenta ahorrar al menos un 20% de tus ingresos.');
   const vencidas = prestamos.reduce((s, p) => s + (p.cuotas_detalle || []).filter(c => c.estado === 'Pendiente' && c.fechaVencimiento < new Date().toISOString().slice(0, 10)).length, 0);
   if (vencidas > 0) insights.push(`🚨 Tienes ${vencidas} cuota(s) de préstamo vencida(s).`);
@@ -121,12 +121,11 @@ export async function generatePDF() {
   if (ingresos > 0) {
     const pctGastos = (gastos / ingresos) * 100;
     const pctDeuda = (pagos / ingresos) * 100;
-    const pctAhorro = (ahorro / ingresos) * 100;
 
     if (pctGastos > 50) recomendaciones.push(`Tus gastos variables representan el ${pctGastos.toFixed(0)}% de tus ingresos (${FMT.format(gastos)}), por encima del 50% recomendado. Revisa tus gastos discrecionales.`);
     if (pctDeuda > 30) recomendaciones.push(`Tus pagos de deuda/préstamos representan el ${pctDeuda.toFixed(0)}% de tus ingresos (${FMT.format(pagos)}). Se recomienda mantener este ratio por debajo del 30-36%.`);
-    if (pctAhorro < 20) recomendaciones.push(`Ahorraste el ${pctAhorro.toFixed(0)}% de tus ingresos (${FMT.format(ahorro)}), por debajo de la meta recomendada del 20%.`);
-    else recomendaciones.push(`Tu tasa de ahorro del ${pctAhorro.toFixed(0)}% cumple o supera la meta recomendada del 20%.`);
+    if (pctAhorroIngreso < 20) recomendaciones.push(`Ahorraste el ${pctAhorroIngreso.toFixed(0)}% de tus ingresos (${FMT.format(ahorro)}), por debajo de la meta recomendada del 20%.`);
+    else recomendaciones.push(`Tu tasa de ahorro del ${pctAhorroIngreso.toFixed(0)}% cumple o supera la meta recomendada del 20%.`);
 
     sortedCat.forEach(([cat, monto]) => {
       const pctCat = (monto / ingresos) * 100;
@@ -143,10 +142,12 @@ export async function generatePDF() {
   const mesLabel = new Date(mes + '-02').toLocaleDateString('es-DO', { month: 'long', year: 'numeric' });
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="color-scheme" content="light">
 <title>Reporte Financiero — ${mes}</title>
 <style>
-  :root{--accent:#6c5ce7;--accent2:#00b894;--red:#e17055;--blue:#0984e3;--text:#1a1a2e;--text2:#636e72;--border:#e5e7eb}
+  :root{color-scheme:light;--accent:#6c5ce7;--accent2:#00b894;--red:#e17055;--blue:#0984e3;--text:#1a1a2e;--text2:#636e72;--border:#e5e7eb}
   *{box-sizing:border-box}
+  html,body{background:#fff}
   body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;padding:40px;color:var(--text);max-width:850px}
   header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--accent);padding-bottom:16px;margin-bottom:24px}
   header .brand{display:flex;align-items:center;gap:10px}

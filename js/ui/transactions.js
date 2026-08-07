@@ -136,6 +136,96 @@ window.txDelete = async function (id) {
   loadTransacciones();
 };
 
+// ── Registro por voz ─────────────────────────────────────────
+
+function normalizarTexto(s) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+function parseVoiceTransaction(text) {
+  const norm = normalizarTexto(text);
+
+  let tipo = 'gasto';
+  if (/\b(recibi|ingrese|gane|cobre|deposite|me pagaron|salario|sueldo)\b/.test(norm)) tipo = 'ingreso';
+  else if (/\b(ahorre|abone a mi meta|meta de ahorro)\b/.test(norm)) tipo = 'ahorro';
+  else if (/\b(pague la cuota|cuota del?|abone al prestamo|pago del prestamo)\b/.test(norm)) tipo = 'pago';
+  else if (/\b(gaste|compre|pague)\b/.test(norm)) tipo = 'gasto';
+
+  let monto = 0;
+  const milMatch = norm.match(/(\d+(?:[.,]\d+)?)\s*mil/);
+  if (milMatch) {
+    monto = parseFloat(milMatch[1].replace(',', '.')) * 1000;
+  } else {
+    const numMatch = norm.match(/\d+(?:[.,]\d+)?/);
+    if (numMatch) monto = parseFloat(numMatch[0].replace(',', '.'));
+  }
+
+  let categoria = '';
+  const cats = (state.categorias || []).slice().sort((a, b) => b.nombre.length - a.nombre.length);
+  for (const c of cats) {
+    if (norm.includes(normalizarTexto(c.nombre))) { categoria = c.nombre; break; }
+  }
+
+  let cuenta = '';
+  const cuentas = (state.cuentas || []).slice().sort((a, b) => b.nombre.length - a.nombre.length);
+  for (const c of cuentas) {
+    if (norm.includes(normalizarTexto(c.nombre))) { cuenta = c.nombre; break; }
+  }
+
+  let fecha = new Date().toISOString().slice(0, 10);
+  if (/\bayer\b/.test(norm)) {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    fecha = d.toISOString().slice(0, 10);
+  }
+
+  return { tipo, monto, categoria, cuenta, fecha, descripcion: text };
+}
+
+let voiceRecognition = null;
+function getVoiceRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  if (!voiceRecognition) {
+    voiceRecognition = new SR();
+    voiceRecognition.lang = 'es-DO';
+    voiceRecognition.interimResults = false;
+    voiceRecognition.maxAlternatives = 1;
+  }
+  return voiceRecognition;
+}
+
+window.startVoiceTx = function () {
+  const rec = getVoiceRecognition();
+  if (!rec) { toast('Tu navegador no soporta dictado por voz. Prueba con Chrome.'); return; }
+
+  openModal('modalTx');
+  const statusEl = document.getElementById('voiceStatus');
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = '🎙️ Escuchando... di algo como "gasté 500 pesos en comida"';
+  }
+
+  rec.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    const parsed = parseVoiceTransaction(text);
+    document.getElementById('txTipo').value = parsed.tipo;
+    document.getElementById('txFecha').value = parsed.fecha;
+    if (parsed.monto) document.getElementById('txMonto').value = parsed.monto;
+    if (parsed.categoria) document.getElementById('txCategoria').value = parsed.categoria;
+    if (parsed.cuenta) document.getElementById('txCuentaSel').value = parsed.cuenta;
+    document.getElementById('txDescripcion').value = parsed.descripcion;
+    if (statusEl) statusEl.textContent = `✅ Entendí: "${text}" — revisa los campos y guarda.`;
+  };
+  rec.onerror = () => {
+    if (statusEl) statusEl.textContent = '❌ No se entendió, intenta de nuevo.';
+  };
+  rec.onend = () => {
+    if (statusEl) setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+  };
+  rec.start();
+};
+
 window.exportarTransacciones = function () {
   const mes = document.getElementById('txMes')?.value || getCurrentMonth();
   let txs = state.transacciones.filter(t => fechaToMes(t.fecha) === mes);
