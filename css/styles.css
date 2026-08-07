@@ -330,10 +330,10 @@ tr:hover td { background:var(--bg3); }
 .bottom-nav-inner { display:flex; justify-content:space-around; max-width:500px; margin:0 auto; }
 .bottom-nav-item {
   display:flex; flex-direction:column; align-items:center; gap:2px;
-  font-size:10px; color:var(--text2); padding:4px 12px;
+  font-size:10px; font-weight:600; color:var(--text2); padding:4px 12px;
   transition: var(--transition);
 }
-.bottom-nav-item.active { color:var(--accent); }
+.bottom-nav-item.active { color:var(--accent); font-weight:800; }
 .bottom-nav-item .icon { font-size:22px; }
 
 /* Toast */
