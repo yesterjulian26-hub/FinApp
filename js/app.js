@@ -20,6 +20,7 @@ export let state = {
   categorias: [],
   cuentas: [],
   transacciones: [],
+  recurrentes: [],
   user: null
 };
 
@@ -193,15 +194,17 @@ async function initApp() {
   }
 
   // Load core data in parallel
-  const [cats, cuentas, txs] = await Promise.all([
+  const [cats, cuentas, txs, recs] = await Promise.all([
     DB.getCategorias(),
     DB.getCuentas(),
-    DB.getTransacciones()
+    DB.getTransacciones(),
+    DB.getRecurrentes()
   ]);
 
   state.categorias = cats;
   state.cuentas = cuentas;
   state.transacciones = txs;
+  state.recurrentes = recs;
 
   populateSelects();
   initTransacciones();

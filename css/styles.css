@@ -241,6 +241,8 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px r
 .balance-value-wrap { margin-bottom:18px; }
 .balance-hero-value { font-size:36px; font-weight:800; letter-spacing:-0.02em; transition:filter 0.2s; }
 .balance-value-wrap.hidden .balance-hero-value { filter:blur(9px); user-select:none; }
+.balance-hero-note { font-size:12px; color:var(--text2); margin-top:4px; }
+.balance-value-wrap.hidden .balance-hero-note { filter:blur(4px); user-select:none; }
 .balance-hero-sub { display:flex; align-items:center; gap:20px; }
 .balance-stat { flex:1; min-width:0; }
 .balance-stat-label { font-size:12px; color:var(--text2); font-weight:600; margin-bottom:4px; display:block; }

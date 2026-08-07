@@ -20,6 +20,40 @@ function addCat(porCat, categoria, monto) {
   porCat[categoria].count += 1;
 }
 
+function proyeccionRecurrentesMes(mes, cuenta) {
+  const inicio = `${mes}-01`;
+  const [y, m] = mes.split('-').map(Number);
+  const fin = new Date(y, m, 0).toISOString().slice(0, 10);
+  let ingresos = 0, gastos = 0, pagos = 0, count = 0;
+
+  (state.recurrentes || []).forEach(r => {
+    if (!r.proximaFecha) return;
+    if (cuenta && r.cuenta !== cuenta) return;
+    const frec = String(r.frecuencia || '').toLowerCase();
+    const tipo = String(r.tipo || '').toLowerCase();
+    const monto = parseMonto(r.monto);
+    const d = new Date(r.proximaFecha);
+    let guard = 0;
+    while (guard < 60) {
+      const fechaStr = d.toISOString().slice(0, 10);
+      if (fechaStr > fin) break;
+      if (fechaStr >= inicio) {
+        if (tipo === 'ingreso') ingresos += monto;
+        else if (tipo === 'pago') pagos += monto;
+        else gastos += monto;
+        count++;
+      }
+      if (frec === 'semanal') d.setDate(d.getDate() + 7);
+      else if (frec === 'quincenal') d.setDate(d.getDate() + 15);
+      else if (frec === 'anual') d.setFullYear(d.getFullYear() + 1);
+      else d.setMonth(d.getMonth() + 1);
+      guard++;
+    }
+  });
+
+  return { ingresos, gastos, pagos, count };
+}
+
 function mesAnterior(mes) {
   const [y, m] = mes.split('-').map(Number);
   let pm = m - 1, py = y;
@@ -56,8 +90,15 @@ export async function loadDashboard() {
     return true;
   });
 
-  const { ingresos, gastos, pagos, ahorro, porCat } = bucketize(data);
+  const { ingresos: ingresosReal, gastos: gastosReal, pagos: pagosReal, ahorro, porCat } = bucketize(data);
   const { ingresos: ingresosPrev, gastos: gastosPrev } = bucketize(dataPrev);
+
+  const esMesActual = mes === getCurrentMonth();
+  const preview = esMesActual ? proyeccionRecurrentesMes(mes, cuenta) : { ingresos: 0, gastos: 0, pagos: 0, count: 0 };
+
+  const ingresos = ingresosReal + preview.ingresos;
+  const gastos = gastosReal + preview.gastos;
+  const pagos = pagosReal + preview.pagos;
   const balance = ingresos - gastos - pagos - ahorro;
   const tasa = ingresos > 0 ? ((balance / ingresos) * 100).toFixed(0) : 0;
 
@@ -74,6 +115,17 @@ export async function loadDashboard() {
   if (balEl) balEl.className = 'balance-hero-value ' + (balance >= 0 ? 'green' : 'red');
   const ahorroEl = document.getElementById('kpiAhorro');
   if (ahorroEl) ahorroEl.textContent = tasa + '%';
+
+  const previstoEl = document.getElementById('previstoNote');
+  if (previstoEl) {
+    const netoPrevisto = preview.ingresos - preview.gastos - preview.pagos;
+    if (preview.count > 0) {
+      previstoEl.style.display = 'block';
+      previstoEl.textContent = `📅 Incluye ${netoPrevisto >= 0 ? '+' : ''}${FMT.format(netoPrevisto)} previsto de ${preview.count} movimiento${preview.count === 1 ? '' : 's'} recurrente${preview.count === 1 ? '' : 's'} pendiente${preview.count === 1 ? '' : 's'} este mes`;
+    } else {
+      previstoEl.style.display = 'none';
+    }
+  }
 
   renderBarChart(mes, cuenta);
   renderDoughnut(porCat);
