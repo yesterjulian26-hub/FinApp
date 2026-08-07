@@ -485,6 +485,24 @@ export async function pagarCuota(prestamoId, cuotaId) {
   return { cuotasPagadas: pagadas, totalCuotas: pr.cuotas, tx };
 }
 
+export async function processCuotasPendientes() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const prestamos = await getPrestamos();
+  const creadas = [];
+
+  for (const pr of prestamos) {
+    if (pr.estado !== 'Activo') continue;
+    const vencidas = (pr.cuotas_detalle || [])
+      .filter(c => c.estado === 'Pendiente' && c.fechaVencimiento && c.fechaVencimiento <= hoy)
+      .sort((a, b) => (a.fechaVencimiento || '').localeCompare(b.fechaVencimiento || ''));
+    for (const c of vencidas) {
+      const result = await pagarCuota(pr.id, c.id);
+      if (result.tx) creadas.push(result.tx);
+    }
+  }
+  return creadas;
+}
+
 export async function updateFechaCuota(prestamoId, cuotaId, fecha) {
   await col('prestamos').doc(prestamoId).collection('cuotas').doc(cuotaId).update({ fechaVencimiento: fecha });
 }

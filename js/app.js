@@ -209,8 +209,20 @@ async function initApp() {
   populateSelects();
   initTransacciones();
 
-  // Process recurrentes in background
-  DB.processRecurrentes().catch(() => {});
+  // Auto-register due recurrentes and overdue loan installments in background
+  Promise.all([
+    DB.processRecurrentes().catch(() => []),
+    DB.processCuotasPendientes().catch(() => [])
+  ]).then(async ([recTxs, cuotaTxs]) => {
+    const nuevas = [...recTxs, ...cuotaTxs];
+    if (!nuevas.length) return;
+    state.transacciones.push(...nuevas);
+    state.recurrentes = await DB.getRecurrentes();
+    toast(`✅ ${nuevas.length} movimiento${nuevas.length === 1 ? '' : 's'} registrado${nuevas.length === 1 ? '' : 's'} automáticamente`);
+    if (document.getElementById('page-dashboard')?.classList.contains('active')) {
+      window.loadDashboard?.();
+    }
+  });
 
   goTo('dashboard');
 
