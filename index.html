@@ -35,8 +35,9 @@
 
 <!-- AUTH -->
 <div id="authScreen" style="display:none">
+  <div class="auth-orbs"><span class="orb orb1"></span><span class="orb orb2"></span><span class="orb orb3"></span></div>
   <div class="auth-card">
-    <div class="auth-logo">💎</div>
+    <div class="auth-logo-wrap"><div class="auth-logo">💎</div></div>
     <h1 class="auth-title">FinApp</h1>
     <p class="auth-subtitle">Toma el control de tus finanzas personales</p>
     <button class="google-btn" onclick="window.loginGoogle()">
@@ -45,10 +46,10 @@
     </button>
     <div class="auth-divider">o conoce lo que puedes hacer</div>
     <div class="auth-features">
-      <div class="auth-feature"><span class="auth-feature-icon" style="background:rgba(108,92,231,0.1)">📊</span><span>Dashboard inteligente con insights automáticos</span></div>
-      <div class="auth-feature"><span class="auth-feature-icon" style="background:rgba(0,184,148,0.1)">🤖</span><span>Asesor financiero IA personalizado</span></div>
-      <div class="auth-feature"><span class="auth-feature-icon" style="background:rgba(243,156,18,0.1)">🎯</span><span>Metas de ahorro y presupuestos</span></div>
-      <div class="auth-feature"><span class="auth-feature-icon" style="background:rgba(9,132,227,0.1)">📥</span><span>Importa estados de cuenta bancarios</span></div>
+      <div class="auth-feature"><span class="auth-feature-icon purple">📊</span><span>Dashboard inteligente con insights automáticos</span></div>
+      <div class="auth-feature"><span class="auth-feature-icon green">🤖</span><span>Asesor financiero IA personalizado</span></div>
+      <div class="auth-feature"><span class="auth-feature-icon orange">🎯</span><span>Metas de ahorro y presupuestos</span></div>
+      <div class="auth-feature"><span class="auth-feature-icon blue">📥</span><span>Importa estados de cuenta bancarios</span></div>
     </div>
     <div class="auth-error" id="authError"></div>
     <div class="auth-footer">Gratis para siempre. Tus datos seguros en tu propia cuenta.</div>
@@ -326,7 +327,15 @@
   <div class="modal-overlay" id="modalTx">
     <div class="modal">
       <h2>Nueva Transacción</h2>
-      <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:12px" onclick="window.startVoiceTx()">🎤 Dictar transacción</button>
+      <button type="button" class="btn btn-secondary btn-sm" id="voiceMicBtn" style="margin-bottom:12px" onclick="window.startVoiceTx()">🎤 Dictar transacción</button>
+      <div class="voice-spectrum" id="voiceSpectrum">
+        <span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span>
+        <span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span>
+        <span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span>
+        <span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span>
+        <span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span>
+        <span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span><span class="voice-bar"></span>
+      </div>
       <div id="voiceStatus" style="display:none;font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--bg3);border-radius:8px"></div>
       <div class="form-row">
         <div class="form-group"><label>Fecha</label><input type="date" id="txFecha"></div>

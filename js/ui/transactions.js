@@ -195,16 +195,61 @@ function getVoiceRecognition() {
   return voiceRecognition;
 }
 
+// ── Espectro de audio en vivo (Web Audio API) ─────────────────
+
+let voiceStream = null;
+let voiceAudioCtx = null;
+let voiceAnimFrame = null;
+
+function stopVoiceSpectrum() {
+  if (voiceAnimFrame) { cancelAnimationFrame(voiceAnimFrame); voiceAnimFrame = null; }
+  if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
+  if (voiceAudioCtx) { voiceAudioCtx.close().catch(() => {}); voiceAudioCtx = null; }
+}
+
+async function startVoiceSpectrum(container) {
+  if (!navigator.mediaDevices?.getUserMedia) return;
+  try {
+    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    return;
+  }
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  voiceAudioCtx = new AudioCtx();
+  const source = voiceAudioCtx.createMediaStreamSource(voiceStream);
+  const analyser = voiceAudioCtx.createAnalyser();
+  analyser.fftSize = 64;
+  analyser.smoothingTimeConstant = 0.75;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  const bars = container.querySelectorAll('.voice-bar');
+
+  function draw() {
+    analyser.getByteFrequencyData(data);
+    bars.forEach((bar, i) => {
+      const v = data[i % data.length] / 255;
+      bar.style.height = `${6 + v * 44}px`;
+    });
+    voiceAnimFrame = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
 window.startVoiceTx = function () {
   const rec = getVoiceRecognition();
   if (!rec) { toast('Tu navegador no soporta dictado por voz. Prueba con Chrome.'); return; }
 
   openModal('modalTx');
   const statusEl = document.getElementById('voiceStatus');
-  if (statusEl) {
-    statusEl.style.display = 'block';
-    statusEl.textContent = '🎙️ Escuchando... di algo como "gasté 500 pesos en comida"';
-  }
+  const spectrumEl = document.getElementById('voiceSpectrum');
+  const micBtn = document.getElementById('voiceMicBtn');
+
+  if (statusEl) statusEl.style.display = 'none';
+  if (spectrumEl) spectrumEl.style.display = 'flex';
+  if (micBtn) micBtn.classList.add('listening');
+  if (spectrumEl) startVoiceSpectrum(spectrumEl);
+
+  let resultMessage = null;
 
   rec.onresult = (e) => {
     const text = e.results[0][0].transcript;
@@ -215,13 +260,20 @@ window.startVoiceTx = function () {
     if (parsed.categoria) document.getElementById('txCategoria').value = parsed.categoria;
     if (parsed.cuenta) document.getElementById('txCuentaSel').value = parsed.cuenta;
     document.getElementById('txDescripcion').value = parsed.descripcion;
-    if (statusEl) statusEl.textContent = `✅ Entendí: "${text}" — revisa los campos y guarda.`;
+    resultMessage = `✅ Entendí: "${text}" — revisa los campos y guarda.`;
   };
   rec.onerror = () => {
-    if (statusEl) statusEl.textContent = '❌ No se entendió, intenta de nuevo.';
+    resultMessage = '❌ No se entendió, intenta de nuevo.';
   };
   rec.onend = () => {
-    if (statusEl) setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+    stopVoiceSpectrum();
+    if (spectrumEl) spectrumEl.style.display = 'none';
+    if (micBtn) micBtn.classList.remove('listening');
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.textContent = resultMessage || '❌ No se detectó voz, intenta de nuevo.';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+    }
   };
   rec.start();
 };
