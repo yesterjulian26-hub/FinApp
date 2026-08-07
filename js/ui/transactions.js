@@ -142,14 +142,44 @@ function normalizarTexto(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
+const VOICE_MESES = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
+  julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10,
+  noviembre: 11, diciembre: 12
+};
+
 function parseVoiceTransaction(text) {
-  const norm = normalizarTexto(text);
+  let norm = normalizarTexto(text);
 
   let tipo = 'gasto';
   if (/\b(recibi|ingrese|gane|cobre|deposite|me pagaron|salario|sueldo)\b/.test(norm)) tipo = 'ingreso';
   else if (/\b(ahorre|abone a mi meta|meta de ahorro)\b/.test(norm)) tipo = 'ahorro';
   else if (/\b(pague la cuota|cuota del?|abone al prestamo|pago del prestamo)\b/.test(norm)) tipo = 'pago';
   else if (/\b(gaste|compre|pague)\b/.test(norm)) tipo = 'gasto';
+
+  // Fecha: se busca primero una fecha explícita ("15 de agosto") y se elimina
+  // del texto para que ese número no se confunda luego con el monto.
+  const hoy = new Date();
+  let fecha = hoy.toISOString().slice(0, 10);
+  const mesesPattern = Object.keys(VOICE_MESES).join('|');
+  const fechaRegex = new RegExp(`\\b(\\d{1,2})\\s+de\\s+(${mesesPattern})(?:\\s+de\\s+(\\d{4}))?\\b`);
+  const fechaMatch = norm.match(fechaRegex);
+  if (fechaMatch) {
+    const dia = parseInt(fechaMatch[1]);
+    const mesNum = VOICE_MESES[fechaMatch[2]];
+    const anio = fechaMatch[3] ? parseInt(fechaMatch[3]) : hoy.getFullYear();
+    const d = new Date(anio, mesNum - 1, dia, 12);
+    if (!isNaN(d.getTime())) fecha = d.toISOString().slice(0, 10);
+    norm = norm.replace(fechaMatch[0], ' ');
+  } else if (/\bantier\b|\banteayer\b/.test(norm)) {
+    const d = new Date(hoy);
+    d.setDate(d.getDate() - 2);
+    fecha = d.toISOString().slice(0, 10);
+  } else if (/\bayer\b/.test(norm)) {
+    const d = new Date(hoy);
+    d.setDate(d.getDate() - 1);
+    fecha = d.toISOString().slice(0, 10);
+  }
 
   let monto = 0;
   const milMatch = norm.match(/(\d+(?:[.,]\d+)?)\s*mil/);
@@ -170,13 +200,6 @@ function parseVoiceTransaction(text) {
   const cuentas = (state.cuentas || []).slice().sort((a, b) => b.nombre.length - a.nombre.length);
   for (const c of cuentas) {
     if (norm.includes(normalizarTexto(c.nombre))) { cuenta = c.nombre; break; }
-  }
-
-  let fecha = new Date().toISOString().slice(0, 10);
-  if (/\bayer\b/.test(norm)) {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    fecha = d.toISOString().slice(0, 10);
   }
 
   return { tipo, monto, categoria, cuenta, fecha, descripcion: text };
