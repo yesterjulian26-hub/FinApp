@@ -24,7 +24,7 @@ function proyeccionRecurrentesMes(mes, cuenta) {
   const inicio = `${mes}-01`;
   const [y, m] = mes.split('-').map(Number);
   const fin = new Date(y, m, 0).toISOString().slice(0, 10);
-  let ingresos = 0, gastos = 0, pagos = 0, count = 0;
+  let ingresos = 0, gastos = 0, pagos = 0, ahorro = 0, count = 0;
 
   (state.recurrentes || []).forEach(r => {
     if (!r.proximaFecha) return;
@@ -40,6 +40,7 @@ function proyeccionRecurrentesMes(mes, cuenta) {
       if (fechaStr >= inicio) {
         if (tipo === 'ingreso') ingresos += monto;
         else if (tipo === 'pago') pagos += monto;
+        else if (tipo === 'ahorro') ahorro += monto;
         else gastos += monto;
         count++;
       }
@@ -51,7 +52,7 @@ function proyeccionRecurrentesMes(mes, cuenta) {
     }
   });
 
-  return { ingresos, gastos, pagos, count };
+  return { ingresos, gastos, pagos, ahorro, count };
 }
 
 function mesAnterior(mes) {
@@ -90,15 +91,16 @@ export async function loadDashboard() {
     return true;
   });
 
-  const { ingresos: ingresosReal, gastos: gastosReal, pagos: pagosReal, ahorro, porCat } = bucketize(data);
+  const { ingresos: ingresosReal, gastos: gastosReal, pagos: pagosReal, ahorro: ahorroReal, porCat } = bucketize(data);
   const { ingresos: ingresosPrev, gastos: gastosPrev } = bucketize(dataPrev);
 
   const esMesActual = mes === getCurrentMonth();
-  const preview = esMesActual ? proyeccionRecurrentesMes(mes, cuenta) : { ingresos: 0, gastos: 0, pagos: 0, count: 0 };
+  const preview = esMesActual ? proyeccionRecurrentesMes(mes, cuenta) : { ingresos: 0, gastos: 0, pagos: 0, ahorro: 0, count: 0 };
 
   const ingresos = ingresosReal + preview.ingresos;
   const gastos = gastosReal + preview.gastos;
   const pagos = pagosReal + preview.pagos;
+  const ahorro = ahorroReal + preview.ahorro;
   const balance = ingresos - gastos - pagos - ahorro;
   const tasa = ingresos > 0 ? ((balance / ingresos) * 100).toFixed(0) : 0;
 
@@ -118,7 +120,7 @@ export async function loadDashboard() {
 
   const previstoEl = document.getElementById('previstoNote');
   if (previstoEl) {
-    const netoPrevisto = preview.ingresos - preview.gastos - preview.pagos;
+    const netoPrevisto = preview.ingresos - preview.gastos - preview.pagos - preview.ahorro;
     if (preview.count > 0) {
       previstoEl.style.display = 'block';
       previstoEl.textContent = `📅 Incluye ${netoPrevisto >= 0 ? '+' : ''}${FMT.format(netoPrevisto)} previsto de ${preview.count} movimiento${preview.count === 1 ? '' : 's'} recurrente${preview.count === 1 ? '' : 's'} pendiente${preview.count === 1 ? '' : 's'} este mes`;

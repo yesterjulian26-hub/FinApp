@@ -14,16 +14,18 @@ export async function loadRecurrentes(skipFetch) {
   const hoy = new Date().toISOString().slice(0, 10);
   grid.innerHTML = recurrentes.map(r => {
     const vencido = r.proximaFecha && r.proximaFecha <= hoy;
+    const icono = r.tipo === 'Ingreso' ? '📥' : r.tipo === 'Ahorro' ? '💰' : '📤';
+    const badgeClass = r.tipo === 'Ingreso' ? 'ingreso' : r.tipo === 'Ahorro' ? 'ahorro' : 'gasto';
     return `<div class="card meta-card">
       <div class="meta-header">
-        <h3>${r.tipo === 'Ingreso' ? '📥' : '📤'} ${r.descripcion}</h3>
+        <h3>${icono} ${r.descripcion}</h3>
         <div style="display:flex;gap:4px">
           <button class="btn-icon" onclick="window.openRecurrenteEdit('${r.id}')" title="Editar">✏️</button>
           <button class="btn-icon" onclick="window.deleteRecurrente('${r.id}')">🗑️</button>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">
-        <span class="badge ${r.tipo === 'Ingreso' ? 'ingreso' : 'gasto'}">${r.tipo}</span>
+        <span class="badge ${badgeClass}">${r.tipo}</span>
         <span style="font-size:12px;color:var(--text2)">${r.categoria}</span>
         <span style="font-size:12px;color:var(--text2)">${r.frecuencia}</span>
       </div>
