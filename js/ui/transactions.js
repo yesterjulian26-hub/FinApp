@@ -7,7 +7,12 @@ export function initTransacciones() {
   if (buscar) buscar.addEventListener('input', () => { clearTimeout(buscar._t); buscar._t = setTimeout(loadTransacciones, 300); });
 }
 
-export async function loadTransacciones() {
+const TX_PAGE_SIZE = 50;
+let txVisibleCount = TX_PAGE_SIZE;
+
+export async function loadTransacciones(keepPage) {
+  if (!keepPage) txVisibleCount = TX_PAGE_SIZE;
+
   const mes = document.getElementById('txMes')?.value || getCurrentMonth();
   const cuenta = document.getElementById('txCuenta')?.value || '';
   const tipoFilter = document.getElementById('txTipoFilter')?.value || '';
@@ -32,8 +37,16 @@ export async function loadTransacciones() {
     return;
   }
 
+  const total = txs.length;
+  const visible = txs.slice(0, txVisibleCount);
+  const pagination = txVisibleCount < total
+    ? `<div style="text-align:center;padding:16px">
+        <button class="btn btn-secondary btn-sm" onclick="window.loadMoreTransacciones()">Mostrar más (${visible.length} de ${total})</button>
+      </div>`
+    : '';
+
   if (isMobile) {
-    container.innerHTML = txs.map(t => {
+    container.innerHTML = visible.map(t => {
       const tipo = String(t.tipo).toLowerCase();
       const icon = getCatIcon(t.categoria);
       return `<div class="tx-mobile-card">
@@ -51,11 +64,11 @@ export async function loadTransacciones() {
           </div>
         </div>
       </div>`;
-    }).join('');
+    }).join('') + pagination;
   } else {
     container.innerHTML = `<table class="data-table"><thead><tr>
       <th>Fecha</th><th>Tipo</th><th>Categoria</th><th>Descripcion</th><th>Monto</th><th>Cuenta</th><th></th>
-    </tr></thead><tbody>${txs.map(t => {
+    </tr></thead><tbody>${visible.map(t => {
       const tipo = String(t.tipo).toLowerCase();
       const icon = getCatIcon(t.categoria);
       return `<tr>
@@ -69,9 +82,14 @@ export async function loadTransacciones() {
           <button class="btn-icon" onclick="window.txEdit('${t.id}')">✏️</button>
           <button class="btn-icon" onclick="window.txDelete('${t.id}')">🗑️</button>
         </td></tr>`;
-    }).join('')}</tbody></table>`;
+    }).join('')}</tbody></table>${pagination}`;
   }
 }
+
+window.loadMoreTransacciones = function () {
+  txVisibleCount += TX_PAGE_SIZE;
+  loadTransacciones(true);
+};
 
 function getCatIcon(name) {
   const c = state.categorias.find(cat => cat.nombre === name);
@@ -315,6 +333,132 @@ window.exportarTransacciones = function () {
   a.click();
   URL.revokeObjectURL(a.href);
   toast('Exportado');
+};
+
+// ── Importar CSV ──────────────────────────────────────────────
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field); field = '';
+    } else if (c === '\n') {
+      row.push(field); rows.push(row); row = []; field = '';
+    } else if (c !== '\r') {
+      field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(f => f.trim() !== ''));
+}
+
+function normalizeHeader(s) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+const CSV_COLUMN_ALIASES = {
+  fecha: ['fecha', 'date', 'dia'],
+  descripcion: ['descripcion', 'concepto', 'description', 'detalle', 'referencia'],
+  monto: ['monto', 'amount', 'valor', 'importe', 'cantidad'],
+  tipo: ['tipo', 'type'],
+  categoria: ['categoria', 'category', 'rubro'],
+  cuenta: ['cuenta', 'account', 'tarjeta']
+};
+
+function resolveCsvColumns(headerRow) {
+  const norm = headerRow.map(normalizeHeader);
+  const idx = {};
+  for (const [field, aliases] of Object.entries(CSV_COLUMN_ALIASES)) {
+    const i = norm.findIndex(h => aliases.includes(h));
+    if (i >= 0) idx[field] = i;
+  }
+  return idx;
+}
+
+function parseCsvDate(s) {
+  s = (s || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = '20' + y;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
+}
+
+function csvRowsToTransactions(rows) {
+  if (rows.length < 2) return null;
+  const idx = resolveCsvColumns(rows[0]);
+  if (idx.fecha === undefined || idx.monto === undefined) return null;
+
+  return rows.slice(1).map(r => {
+    const montoRaw = (r[idx.monto] || '0').replace(/[^0-9.,\-]/g, '').replace(',', '.');
+    const montoNum = parseFloat(montoRaw) || 0;
+    let tipo = idx.tipo !== undefined ? (r[idx.tipo] || '').toLowerCase().trim() : '';
+    if (!['ingreso', 'gasto', 'pago', 'ahorro'].includes(tipo)) {
+      tipo = montoNum < 0 ? 'gasto' : 'ingreso';
+    }
+    return {
+      fecha: parseCsvDate(r[idx.fecha]),
+      tipo,
+      categoria: idx.categoria !== undefined ? (r[idx.categoria] || 'Otros').trim() : 'Otros',
+      descripcion: idx.descripcion !== undefined ? (r[idx.descripcion] || '').trim() : '',
+      monto: Math.abs(montoNum),
+      cuenta: idx.cuenta !== undefined ? (r[idx.cuenta] || 'General').trim() : 'General'
+    };
+  }).filter(t => t.monto > 0);
+}
+
+let pendingImportRows = null;
+
+window.handleCsvFile = function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const rows = parseCSV(String(reader.result));
+    const parsed = csvRowsToTransactions(rows);
+    if (!parsed) { toast('No se detectaron columnas de Fecha y Monto en el CSV'); e.target.value = ''; return; }
+    if (!parsed.length) { toast('No se encontraron transacciones válidas en el archivo'); e.target.value = ''; return; }
+
+    pendingImportRows = parsed;
+    document.getElementById('importCsvSummary').textContent =
+      `Se detectaron ${parsed.length} transacciones. Revisa una muestra antes de importar:`;
+    document.getElementById('importCsvPreview').innerHTML = parsed.slice(0, 8).map(t =>
+      `<tr><td>${formatDate(t.fecha)}</td><td>${t.tipo}</td><td>${t.categoria}</td><td>${t.descripcion}</td><td>${FMT.format(t.monto)}</td></tr>`
+    ).join('') + (parsed.length > 8 ? `<tr><td colspan="5" style="text-align:center;color:var(--text2)">... y ${parsed.length - 8} más</td></tr>` : '');
+    openModal('modalImportCsv');
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+};
+
+window.confirmImportCsv = async function () {
+  if (!pendingImportRows || !pendingImportRows.length) return;
+  const rows = pendingImportRows;
+  pendingImportRows = null;
+  closeModal('modalImportCsv');
+  toast('Importando transacciones...');
+  try {
+    const created = await DB.importTransacciones(rows);
+    state.transacciones.push(...created);
+    toast(`${created.length} transacciones importadas`);
+    loadTransacciones();
+  } catch (err) {
+    toast('Error al importar: ' + err.message);
+  }
 };
 
 window.loadTransacciones = loadTransacciones;

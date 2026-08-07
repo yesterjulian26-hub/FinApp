@@ -2,8 +2,11 @@ import { state, populateSelects } from '../app.js';
 import * as DB from '../db.js';
 import { FMT, formatDate, parseMonto, toast, openModal, closeModal } from '../utils.js';
 
-export async function loadRecurrentes() {
-  const recurrentes = await DB.getRecurrentes();
+let recurrentesCache = [];
+
+export async function loadRecurrentes(skipFetch) {
+  if (!skipFetch) recurrentesCache = await DB.getRecurrentes();
+  const recurrentes = recurrentesCache;
   const grid = document.getElementById('recGrid');
   if (!grid) return;
   if (recurrentes.length === 0) {
@@ -41,24 +44,41 @@ window.saveRecurrente = async function () {
   const proximaFecha = document.getElementById('recFecha').value;
   const cuenta = document.getElementById('recCuenta').value;
   if (!descripcion || !monto || !proximaFecha) { toast('Completa los campos'); return; }
-  await DB.addRecurrente({ descripcion, tipo, categoria, monto, frecuencia, proximaFecha, cuenta });
-  closeModal('modalRecurrente');
-  toast('Recurrente creado');
-  loadRecurrentes();
+  try {
+    const rec = await DB.addRecurrente({ descripcion, tipo, categoria, monto, frecuencia, proximaFecha, cuenta });
+    recurrentesCache.push(rec);
+    closeModal('modalRecurrente');
+    toast('Recurrente creado');
+    loadRecurrentes(true);
+  } catch (err) {
+    toast('Error al guardar: ' + err.message);
+  }
 };
 
 window.deleteRecurrente = async function (id) {
   if (!confirm('Eliminar?')) return;
-  await DB.deleteRecurrente(id);
-  toast('Eliminado');
-  loadRecurrentes();
+  try {
+    await DB.deleteRecurrente(id);
+    recurrentesCache = recurrentesCache.filter(r => r.id !== id);
+    toast('Eliminado');
+    loadRecurrentes(true);
+  } catch (err) {
+    toast('Error al eliminar: ' + err.message);
+  }
 };
 
 window.processRecurrentesBtn = async function () {
-  const count = await DB.processRecurrentes();
-  state.transacciones = await DB.getTransacciones();
-  toast(`${count} transacciones procesadas`);
-  loadRecurrentes();
+  try {
+    const creadas = await DB.processRecurrentes();
+    if (creadas.length) {
+      state.transacciones.push(...creadas);
+      recurrentesCache = await DB.getRecurrentes();
+    }
+    toast(`${creadas.length} transacciones procesadas`);
+    loadRecurrentes(true);
+  } catch (err) {
+    toast('Error al procesar: ' + err.message);
+  }
 };
 
 window.loadRecurrentes = loadRecurrentes;

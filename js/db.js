@@ -93,22 +93,28 @@ export async function deleteTransaccion(id) {
 }
 
 export async function importTransacciones(rows) {
-  const batch = db.batch();
-  rows.forEach(r => {
-    const id = generateId();
-    const ref = col('transacciones').doc(id);
-    batch.set(ref, {
-      fecha: r.fecha || new Date().toISOString().slice(0, 10),
-      tipo: r.tipo || 'gasto',
-      categoria: r.categoria || 'Otros',
-      descripcion: r.descripcion || '',
-      monto: parseFloat(String(r.monto).replace(/[^0-9.\-]/g, '')) || 0,
-      cuenta: r.cuenta || 'General',
-      createdAt: Date.now()
+  const created = [];
+  for (let i = 0; i < rows.length; i += 450) {
+    const chunk = rows.slice(i, i + 450);
+    const batch = db.batch();
+    const docs = chunk.map(r => {
+      const id = generateId();
+      const data = {
+        fecha: r.fecha || new Date().toISOString().slice(0, 10),
+        tipo: r.tipo || 'gasto',
+        categoria: r.categoria || 'Otros',
+        descripcion: r.descripcion || '',
+        monto: parseFloat(String(r.monto).replace(/[^0-9.\-]/g, '')) || 0,
+        cuenta: r.cuenta || 'General',
+        createdAt: Date.now()
+      };
+      batch.set(col('transacciones').doc(id), data);
+      return { id, ...data };
     });
-  });
-  await batch.commit();
-  return rows.length;
+    await batch.commit();
+    created.push(...docs);
+  }
+  return created;
 }
 
 // ── Presupuestos ─────────────────────────────────────────────
@@ -313,27 +319,28 @@ export async function deleteRecurrente(id) {
 export async function processRecurrentes() {
   const hoy = new Date().toISOString().slice(0, 10);
   const recs = await getRecurrentes();
-  let processed = 0;
+  const creadas = [];
 
   for (const r of recs) {
     if (!r.proximaFecha || r.proximaFecha > hoy) continue;
-    await addTransaccion({
+    const tx = await addTransaccion({
       fecha: r.proximaFecha, tipo: r.tipo,
       categoria: r.categoria,
       descripcion: (r.descripcion || '') + ' (recurrente)',
       monto: String(r.monto), cuenta: r.cuenta
     });
+    creadas.push(tx);
 
     const d = new Date(r.proximaFecha);
-    if (r.frecuencia === 'semanal') d.setDate(d.getDate() + 7);
-    else if (r.frecuencia === 'quincenal') d.setDate(d.getDate() + 15);
-    else if (r.frecuencia === 'mensual') d.setMonth(d.getMonth() + 1);
-    else if (r.frecuencia === 'anual') d.setFullYear(d.getFullYear() + 1);
+    const frec = String(r.frecuencia || '').toLowerCase();
+    if (frec === 'semanal') d.setDate(d.getDate() + 7);
+    else if (frec === 'quincenal') d.setDate(d.getDate() + 15);
+    else if (frec === 'anual') d.setFullYear(d.getFullYear() + 1);
+    else d.setMonth(d.getMonth() + 1); // 'mensual' y cualquier valor no reconocido caen aquí
 
     await updateDoc('recurrentes', r.id, { proximaFecha: d.toISOString().slice(0, 10) });
-    processed++;
   }
-  return processed;
+  return creadas;
 }
 
 // ── Préstamos ────────────────────────────────────────────────

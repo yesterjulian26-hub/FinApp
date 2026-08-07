@@ -47,25 +47,39 @@ function tendenciaLineal(arr) {
 export async function generatePDF() {
   toast('Generando reporte...');
   const mes = document.getElementById('repMes')?.value || getCurrentMonth();
+  const rango = document.getElementById('repRangoPdf')?.value || 'mes';
+
+  const mesesIncluidos = rango === '3m' ? ultimosMeses(mes, 3)
+    : rango === '12m' ? ultimosMeses(mes, 12)
+    : [mes];
+  const esRangoMultiple = mesesIncluidos.length > 1;
 
   const [metas, presupuestos, prestamos] = await Promise.all([
     DB.getMetas(), DB.getPresupuestos(), DB.getPrestamos()
   ]);
 
-  const txsMes = state.transacciones.filter(t => fechaToMes(t.fecha) === mes);
-  const ingresos = txsMes.filter(t => esTipo(t.tipo, 'ingreso')).reduce((s, t) => s + parseMonto(t.monto), 0);
-  const gastos = txsMes.filter(t => esTipo(t.tipo, 'gasto')).reduce((s, t) => s + parseMonto(t.monto), 0);
-  const pagos = txsMes.filter(t => esTipo(t.tipo, 'pago')).reduce((s, t) => s + parseMonto(t.monto), 0);
-  const ahorro = txsMes.filter(t => esTipo(t.tipo, 'ahorro')).reduce((s, t) => s + parseMonto(t.monto), 0);
+  const txsRango = state.transacciones.filter(t => mesesIncluidos.includes(fechaToMes(t.fecha)));
+  const ingresos = txsRango.filter(t => esTipo(t.tipo, 'ingreso')).reduce((s, t) => s + parseMonto(t.monto), 0);
+  const gastos = txsRango.filter(t => esTipo(t.tipo, 'gasto')).reduce((s, t) => s + parseMonto(t.monto), 0);
+  const pagos = txsRango.filter(t => esTipo(t.tipo, 'pago')).reduce((s, t) => s + parseMonto(t.monto), 0);
+  const ahorro = txsRango.filter(t => esTipo(t.tipo, 'ahorro')).reduce((s, t) => s + parseMonto(t.monto), 0);
   const balance = ingresos - gastos - pagos - ahorro;
   const pctAhorroIngreso = ingresos > 0 ? (ahorro / ingresos) * 100 : 0;
 
   const byCategoria = {};
-  txsMes.filter(t => !esTipo(t.tipo, 'ingreso')).forEach(t => {
+  txsRango.filter(t => !esTipo(t.tipo, 'ingreso')).forEach(t => {
     byCategoria[t.categoria] = (byCategoria[t.categoria] || 0) + parseMonto(t.monto);
   });
   const totalGastado = gastos + pagos + ahorro;
   const sortedCat = Object.entries(byCategoria).sort((a, b) => b[1] - a[1]);
+
+  // Los presupuestos son límites mensuales: siempre se comparan contra el
+  // mes de referencia (el último del rango), no contra el rango completo.
+  const txsMesRef = state.transacciones.filter(t => fechaToMes(t.fecha) === mes);
+  const byCategoriaMesRef = {};
+  txsMesRef.filter(t => !esTipo(t.tipo, 'ingreso')).forEach(t => {
+    byCategoriaMesRef[t.categoria] = (byCategoriaMesRef[t.categoria] || 0) + parseMonto(t.monto);
+  });
 
   const cuentasInfo = (state.cuentas || []).map(c => ({ nombre: c.nombre, tipo: c.tipo, saldo: saldoCuenta(c) }));
   const patrimonioTotal = cuentasInfo.reduce((s, c) => s + c.saldo, 0);
@@ -139,7 +153,10 @@ export async function generatePDF() {
   const user = state.user;
   const nombre = user?.displayName || user?.email || 'Usuario';
   const fechaGeneracion = new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
-  const mesLabel = new Date(mes + '-02').toLocaleDateString('es-DO', { month: 'long', year: 'numeric' });
+  const mesLabelTexto = (m) => new Date(m + '-02').toLocaleDateString('es-DO', { month: 'long', year: 'numeric' });
+  const periodoLabel = esRangoMultiple
+    ? `${mesLabelTexto(mesesIncluidos[0])} — ${mesLabelTexto(mesesIncluidos[mesesIncluidos.length - 1])}`
+    : mesLabelTexto(mes);
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="color-scheme" content="light">
@@ -189,10 +206,10 @@ export async function generatePDF() {
 
 <div class="hero">
   <div><div class="label">PATRIMONIO TOTAL (todas las cuentas)</div><div class="val">${FMT.format(patrimonioTotal)}</div></div>
-  <div>Periodo del reporte<br><strong style="font-size:14px;color:#fff">${mesLabel}</strong></div>
+  <div>Periodo del reporte<br><strong style="font-size:14px;color:#fff">${periodoLabel}</strong></div>
 </div>
 
-<h2>Resumen del Mes</h2>
+<h2>Resumen del Periodo</h2>
 <div class="summary">
   <div class="sum-card"><h3>Ingresos</h3><div class="val green">${FMT.format(ingresos)}</div></div>
   <div class="sum-card"><h3>Gastos</h3><div class="val red">${FMT.format(gastos)}</div></div>
@@ -223,11 +240,11 @@ ${prestamos.length ? `<table><thead><tr><th>Nombre</th><th>Tipo</th><th>Total</t
       <td><span class="badge ${p.estado === 'Completado' ? 'ok' : 'warn'}">${p.estado}</span></td></tr>`;
     }).join('')}</tbody></table>` : '<div class="empty">Sin préstamos registrados.</div>'}
 
-<h2>Presupuestos del Mes</h2>
+<h2>Presupuestos (mes de referencia: ${mesLabelTexto(mes)})</h2>
 ${presupuestos.length ? `<table><thead><tr><th>Categoría</th><th>Límite</th><th>Gastado</th><th>%</th></tr></thead>
 <tbody>${presupuestos.map(p => {
       const limite = parseMonto(p.montoLimite);
-      const gastado = byCategoria[p.categoria] || 0;
+      const gastado = byCategoriaMesRef[p.categoria] || 0;
       const pct = limite > 0 ? (gastado / limite * 100) : 0;
       return `<tr><td>${p.categoria}</td><td>${FMT.format(limite)}</td><td>${FMT.format(gastado)}</td>
       <td><span class="badge ${pct >= 100 ? 'warn' : 'ok'}">${pct.toFixed(0)}%</span></td></tr>`;
@@ -238,7 +255,7 @@ ${sortedCat.length ? `<table><thead><tr><th>Categoría</th><th>Monto</th><th>%</
 <tbody>${sortedCat.map(([cat, monto]) => {
       const pct = totalGastado > 0 ? (monto / totalGastado * 100).toFixed(1) : '0.0';
       return `<tr><td>${cat}</td><td>${FMT.format(monto)}</td><td>${pct}%</td></tr>`;
-    }).join('')}</tbody></table>` : '<div class="empty">Sin gastos este mes.</div>'}
+    }).join('')}</tbody></table>` : '<div class="empty">Sin gastos en este periodo.</div>'}
 
 <h2>Tendencia (últimos 6 meses)</h2>
 <table><thead><tr><th>Mes</th><th>Ingresos</th><th>Gastos totales</th><th>Balance</th></tr></thead>
@@ -261,12 +278,12 @@ ${recomendaciones.map(r => `<div class="insight-item">${r}</div>`).join('')}
 <h2>Insights</h2>
 ${insights.length ? insights.map(i => `<div class="insight-item">${i}</div>`).join('') : '<div class="empty">No hay suficientes datos para generar insights.</div>'}
 
-<h2>Transacciones del Mes</h2>
-${txsMes.length ? `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Cuenta</th><th>Monto</th></tr></thead>
-<tbody>${txsMes.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')).map(t =>
+<h2>Transacciones del Periodo</h2>
+${txsRango.length ? `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Cuenta</th><th>Monto</th></tr></thead>
+<tbody>${txsRango.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')).map(t =>
       `<tr><td>${formatDate(t.fecha)}</td><td>${t.tipo}</td><td>${t.categoria}</td><td>${t.descripcion || ''}</td><td>${t.cuenta || 'General'}</td>
     <td style="color:${esTipo(t.tipo, 'ingreso') ? 'var(--accent2)' : 'var(--red)'}">${esTipo(t.tipo, 'ingreso') ? '+' : '-'}${FMT.format(parseMonto(t.monto))}</td></tr>`
-    ).join('')}</tbody></table>` : '<div class="empty">Sin transacciones este mes.</div>'}
+    ).join('')}</tbody></table>` : '<div class="empty">Sin transacciones en este periodo.</div>'}
 
 <footer>Generado por FinApp el ${fechaGeneracion} · Reporte confidencial de ${nombre}</footer>
 </body></html>`;

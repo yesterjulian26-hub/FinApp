@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#6C5CE7">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💎</text></svg>">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
 <link rel="stylesheet" href="css/styles.css">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -132,11 +133,34 @@
         <option value="">Todas las cuentas</option>
       </select>
     </div>
-    <div class="kpi-grid" id="kpiGrid">
-      <div class="card kpi"><div class="label">Ingresos</div><div class="value green" id="kpiIngresos">RD$ 0</div></div>
-      <div class="card kpi"><div class="label">Gastos</div><div class="value red" id="kpiGastos">RD$ 0</div></div>
+    <div class="card balance-hero">
+      <div class="balance-hero-top">
+        <span class="balance-hero-label">Balance del mes</span>
+        <button class="balance-eye-btn" id="balanceEyeBtn" onclick="window.toggleBalanceVisibility()" title="Ocultar/mostrar balance">👁️</button>
+      </div>
+      <div class="balance-value-wrap" id="balanceValueWrap">
+        <div class="balance-hero-value" id="kpiBalance">RD$ 0</div>
+      </div>
+      <div class="balance-hero-sub">
+        <div class="balance-stat">
+          <span class="balance-stat-label">Ingresos</span>
+          <div class="balance-stat-row">
+            <span class="balance-stat-value green" id="kpiIngresos">RD$ 0</span>
+            <span class="delta-badge" id="deltaIngresos" style="display:none"></span>
+          </div>
+        </div>
+        <div class="balance-stat-divider"></div>
+        <div class="balance-stat">
+          <span class="balance-stat-label">Gastos</span>
+          <div class="balance-stat-row">
+            <span class="balance-stat-value red" id="kpiGastos">RD$ 0</span>
+            <span class="delta-badge" id="deltaGastos" style="display:none"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-grid" id="kpiGrid" style="grid-template-columns:repeat(2, 1fr)">
       <div class="card kpi"><div class="label">Pagos</div><div class="value" id="kpiPagos" style="color:#0984e3">RD$ 0</div></div>
-      <div class="card kpi"><div class="label">Balance</div><div class="value" id="kpiBalance">RD$ 0</div></div>
       <div class="card kpi"><div class="label">💰 Ahorro</div><div class="value" id="kpiAhorroMonto" style="color:#6c5ce7">RD$ 0</div></div>
     </div>
     <div class="chart-grid">
@@ -155,8 +179,10 @@
   <section class="page" id="page-transacciones">
     <div class="page-header">
       <h2 class="page-title">Transacciones</h2>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="window.exportarTransacciones()">📥 Exportar</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('csvFileInput').click()">📤 Importar CSV</button>
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="window.handleCsvFile(event)">
         <button class="btn btn-secondary" onclick="window.startVoiceTx()">🎤 Dictar</button>
         <button class="btn btn-primary" onclick="window.openModal('modalTx')">+ Nueva</button>
       </div>
@@ -250,7 +276,14 @@
       <h2 class="page-title">Reportes</h2>
       <button class="btn btn-primary" onclick="window.generatePDF()">📄 Descargar PDF</button>
     </div>
-    <div class="toolbar"><input type="month" id="repMes" onchange="window.loadReportes()"></div>
+    <div class="toolbar">
+      <input type="month" id="repMes" onchange="window.loadReportes()">
+      <select id="repRangoPdf" title="Rango del reporte PDF">
+        <option value="mes">PDF: Mes actual</option>
+        <option value="3m">PDF: Últimos 3 meses</option>
+        <option value="12m">PDF: Último año</option>
+      </select>
+    </div>
     <div class="kpi-grid">
       <div class="card kpi"><div class="label">Ingresos</div><div class="value green" id="repIngresos">RD$ 0</div></div>
       <div class="card kpi"><div class="label">Gastos</div><div class="value red" id="repGastos">RD$ 0</div></div>
@@ -353,6 +386,22 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="window.closeModal('modalTx')">Cancelar</button>
         <button class="btn btn-primary" onclick="window.saveTx()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Importar CSV -->
+  <div class="modal-overlay" id="modalImportCsv">
+    <div class="modal" style="max-width:640px">
+      <h2>Importar transacciones</h2>
+      <p id="importCsvSummary" style="font-size:13px;color:var(--text2);margin-bottom:12px"></p>
+      <div class="table-wrap" style="max-height:300px;overflow:auto">
+        <table><thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Monto</th></tr></thead>
+        <tbody id="importCsvPreview"></tbody></table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="window.closeModal('modalImportCsv')">Cancelar</button>
+        <button class="btn btn-primary" onclick="window.confirmImportCsv()">Importar</button>
       </div>
     </div>
   </div>

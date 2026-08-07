@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finapp-v16';
+const CACHE_NAME = 'finapp-v18';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -20,7 +20,10 @@ const STATIC_ASSETS = [
   '/js/ui/projection.js',
   '/js/ui/report-pdf.js',
   '/js/ui/ai-chat.js',
-  '/js/ui/settings.js'
+  '/js/ui/settings.js',
+  '/icons/icon-180.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 self.addEventListener('install', e => {

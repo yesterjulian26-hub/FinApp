@@ -1,7 +1,46 @@
 import { state } from '../app.js';
 import { FMT, getCurrentMonth, fechaToMes, parseMonto, esTipo, animateValue } from '../utils.js';
 
+function bucketize(txs) {
+  let ingresos = 0, gastos = 0, pagos = 0, ahorro = 0;
+  const porCat = {};
+  txs.forEach(t => {
+    const m = parseMonto(t.monto);
+    if (esTipo(t.tipo, 'ingreso')) ingresos += m;
+    else if (esTipo(t.tipo, 'pago')) { pagos += m; addCat(porCat, t.categoria, m); }
+    else if (esTipo(t.tipo, 'ahorro')) { ahorro += m; addCat(porCat, t.categoria, m); }
+    else { gastos += m; addCat(porCat, t.categoria, m); }
+  });
+  return { ingresos, gastos, pagos, ahorro, porCat };
+}
+
+function addCat(porCat, categoria, monto) {
+  if (!porCat[categoria]) porCat[categoria] = { monto: 0, count: 0 };
+  porCat[categoria].monto += monto;
+  porCat[categoria].count += 1;
+}
+
+function mesAnterior(mes) {
+  const [y, m] = mes.split('-').map(Number);
+  let pm = m - 1, py = y;
+  if (pm <= 0) { pm = 12; py--; }
+  return `${py}-${String(pm).padStart(2, '0')}`;
+}
+
+function renderDelta(elId, actual, previo, masEsBueno) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (previo <= 0) { el.style.display = 'none'; return; }
+  const pct = ((actual - previo) / previo) * 100;
+  const subio = pct >= 0;
+  const esBueno = masEsBueno ? subio : !subio;
+  el.style.display = 'inline-flex';
+  el.className = 'delta-badge ' + (esBueno ? 'up-good' : 'up-bad');
+  el.textContent = `${subio ? '↗' : '↘'} ${Math.abs(pct).toFixed(1)}%`;
+}
+
 export async function loadDashboard() {
+  applyStoredBalanceVisibility();
   const mes = document.getElementById('dashMes')?.value || getCurrentMonth();
   const cuenta = document.getElementById('dashCuenta')?.value || '';
   const txs = state.transacciones;
@@ -11,16 +50,14 @@ export async function loadDashboard() {
     if (cuenta && t.cuenta !== cuenta) return false;
     return true;
   });
-
-  let ingresos = 0, gastos = 0, pagos = 0, ahorro = 0;
-  const porCat = {};
-  data.forEach(t => {
-    const m = parseMonto(t.monto);
-    if (esTipo(t.tipo, 'ingreso')) ingresos += m;
-    else if (esTipo(t.tipo, 'pago')) { pagos += m; porCat[t.categoria] = (porCat[t.categoria] || 0) + m; }
-    else if (esTipo(t.tipo, 'ahorro')) { ahorro += m; porCat[t.categoria] = (porCat[t.categoria] || 0) + m; }
-    else { gastos += m; porCat[t.categoria] = (porCat[t.categoria] || 0) + m; }
+  const dataPrev = txs.filter(t => {
+    if (fechaToMes(t.fecha) !== mesAnterior(mes)) return false;
+    if (cuenta && t.cuenta !== cuenta) return false;
+    return true;
   });
+
+  const { ingresos, gastos, pagos, ahorro, porCat } = bucketize(data);
+  const { ingresos: ingresosPrev, gastos: gastosPrev } = bucketize(dataPrev);
   const balance = ingresos - gastos - pagos - ahorro;
   const tasa = ingresos > 0 ? ((balance / ingresos) * 100).toFixed(0) : 0;
 
@@ -30,8 +67,11 @@ export async function loadDashboard() {
   animateValue(document.getElementById('kpiBalance'), 0, balance, 600);
   animateValue(document.getElementById('kpiAhorroMonto'), 0, ahorro, 600);
 
+  renderDelta('deltaIngresos', ingresos, ingresosPrev, true);
+  renderDelta('deltaGastos', gastos, gastosPrev, false);
+
   const balEl = document.getElementById('kpiBalance');
-  if (balEl) balEl.className = 'value ' + (balance >= 0 ? 'green' : 'red');
+  if (balEl) balEl.className = 'balance-hero-value ' + (balance >= 0 ? 'green' : 'red');
   const ahorroEl = document.getElementById('kpiAhorro');
   if (ahorroEl) ahorroEl.textContent = tasa + '%';
 
@@ -39,6 +79,24 @@ export async function loadDashboard() {
   renderDoughnut(porCat);
   loadAlerts();
 }
+
+function applyStoredBalanceVisibility() {
+  const wrap = document.getElementById('balanceValueWrap');
+  const btn = document.getElementById('balanceEyeBtn');
+  if (!wrap) return;
+  const hidden = localStorage.getItem('finapp_hide_balance') === 'true';
+  wrap.classList.toggle('hidden', hidden);
+  if (btn) btn.textContent = hidden ? '🙈' : '👁️';
+}
+
+window.toggleBalanceVisibility = function () {
+  const wrap = document.getElementById('balanceValueWrap');
+  const btn = document.getElementById('balanceEyeBtn');
+  if (!wrap) return;
+  const hidden = wrap.classList.toggle('hidden');
+  localStorage.setItem('finapp_hide_balance', hidden ? 'true' : 'false');
+  if (btn) btn.textContent = hidden ? '🙈' : '👁️';
+};
 
 function renderBarChart(selectedMes, cuenta) {
   const txs = state.transacciones;
@@ -77,23 +135,19 @@ function renderBarChart(selectedMes, cuenta) {
 function renderDoughnut(porCat) {
   const el = document.getElementById('doughnutChart');
   if (!el) return;
-  const entries = Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const entries = Object.entries(porCat).sort((a, b) => b[1].monto - a[1].monto).slice(0, 6);
   if (entries.length === 0) { el.innerHTML = '<div style="text-align:center;color:var(--text2);padding:40px">Sin gastos</div>'; return; }
 
-  const total = entries.reduce((s, [, v]) => s + v, 0);
+  const total = entries.reduce((s, [, v]) => s + v.monto, 0);
   const colors = ['#6c5ce7', '#00b894', '#e74c3c', '#0984e3', '#fdcb6e', '#e17055'];
 
-  let offset = 0;
-  const segments = entries.map(([cat, monto], i) => {
-    const pct = (monto / total) * 100;
+  const segments = entries.map(([cat, v], i) => {
+    const pct = (v.monto / total) * 100;
     const catData = state.categorias.find(c => c.nombre === cat);
     const color = catData?.color || colors[i % colors.length];
-    const seg = `${color} ${offset}% ${offset + pct}%`;
-    offset += pct;
-    return { cat, monto, pct, color, icono: catData?.icono || '' };
+    return { cat, monto: v.monto, count: v.count, pct, color, icono: catData?.icono || '📦' };
   });
 
-  const gradStr = segments.map(s => `${s.color} ${(offset - s.pct - (offset - segments.reduce((a, b) => a + b.pct, 0)))}%`);
   let grad = '';
   let pos = 0;
   segments.forEach(s => {
@@ -104,13 +158,22 @@ function renderDoughnut(porCat) {
 
   el.innerHTML = `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
     <div style="width:140px;height:140px;border-radius:50%;background:conic-gradient(${grad});position:relative;flex-shrink:0">
-      <div style="position:absolute;inset:30px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--text)">${FMT.format(total)}</div>
+      <div style="position:absolute;inset:30px;border-radius:50%;background:var(--bg2);display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <span style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase">Total</span>
+        <span style="font-weight:800;font-size:14px;color:var(--text)">${FMT.format(total)}</span>
+      </div>
     </div>
-    <div style="flex:1;min-width:150px">${segments.map(s => `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px">
-        <div style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></div>
-        <span style="flex:1">${s.icono} ${s.cat}</span>
-        <strong>${s.pct.toFixed(0)}%</strong>
+    <div style="flex:1;min-width:200px">${segments.map(s => `
+      <div class="cat-row">
+        <div class="cat-avatar" style="background:${s.color}22;color:${s.color}">${s.icono}</div>
+        <div class="cat-row-info">
+          <div class="cat-row-name">${s.cat}</div>
+          <div class="cat-row-count">${s.count} transacci${s.count === 1 ? 'ón' : 'ones'}</div>
+        </div>
+        <div class="cat-row-amounts">
+          <div class="cat-row-amount">${FMT.format(s.monto)}</div>
+          <div class="cat-row-pct">${s.pct.toFixed(0)}%</div>
+        </div>
       </div>`).join('')}
     </div>
   </div>`;
