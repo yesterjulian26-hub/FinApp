@@ -23,7 +23,10 @@ export async function loadCuentas(skipFetch) {
     const icon = CUENTA_ICONS[c.tipo] || '💰';
     return `<div class="card meta-card">
       <div class="meta-header"><h3>${icon} ${c.nombre}</h3>
-        <button class="btn-icon" onclick="window.deleteCuenta('${c.id}')">🗑️</button></div>
+        <div style="display:flex;gap:4px">
+          <button class="btn-icon" onclick="window.openCuentaEdit('${c.id}')" title="Editar">✏️</button>
+          <button class="btn-icon" onclick="window.deleteCuenta('${c.id}')">🗑️</button>
+        </div></div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${c.tipo}</div>
       <div style="font-size:22px;font-weight:700;color:${saldo >= 0 ? 'var(--accent2)' : 'var(--red)'}">${FMT.format(saldo)}</div>
     </div>`;
@@ -31,17 +34,48 @@ export async function loadCuentas(skipFetch) {
   populateSelects();
 }
 
+window.openCuentaEdit = function (id) {
+  const c = state.cuentas.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('cuentaEditId').value = id;
+  document.getElementById('modalCuentaTitle').textContent = 'Editar Cuenta';
+  document.getElementById('cuentaNombre').value = c.nombre;
+  document.getElementById('cuentaTipo').value = c.tipo || 'Banco';
+  document.getElementById('cuentaSaldo').value = c.saldoInicial || 0;
+  openModal('modalCuenta');
+};
+
 window.saveCuenta = async function () {
+  const editId = document.getElementById('cuentaEditId').value;
   const nombre = document.getElementById('cuentaNombre').value;
   const tipo = document.getElementById('cuentaTipo').value;
   const saldoInicial = document.getElementById('cuentaSaldo').value || '0';
   if (!nombre) { toast('Ingresa un nombre'); return; }
-  const cuenta = await DB.addCuenta({ nombre, tipo, saldoInicial });
-  state.cuentas.push(cuenta);
-  state.cuentas.sort((a, b) => a.nombre.localeCompare(b.nombre));
-  closeModal('modalCuenta');
-  toast('Cuenta creada');
+
+  if (editId) {
+    const updated = await DB.updateCuenta(editId, { nombre, tipo, saldoInicial });
+    const c = state.cuentas.find(x => x.id === editId);
+    if (c) Object.assign(c, updated);
+    state.cuentas.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    closeModal('modalCuenta');
+    toast('Cuenta actualizada');
+  } else {
+    const cuenta = await DB.addCuenta({ nombre, tipo, saldoInicial });
+    state.cuentas.push(cuenta);
+    state.cuentas.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    closeModal('modalCuenta');
+    toast('Cuenta creada');
+  }
   loadCuentas(true);
+};
+
+window.openCuentaNew = function () {
+  document.getElementById('cuentaEditId').value = '';
+  document.getElementById('modalCuentaTitle').textContent = 'Nueva Cuenta';
+  document.getElementById('cuentaNombre').value = '';
+  document.getElementById('cuentaTipo').value = 'Banco';
+  document.getElementById('cuentaSaldo').value = '0';
+  openModal('modalCuenta');
 };
 
 window.deleteCuenta = async function (id) {

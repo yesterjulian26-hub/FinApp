@@ -134,6 +134,12 @@ export async function addPresupuesto(p) {
   return addDoc('presupuestos', { categoria: p.categoria, montoLimite });
 }
 
+export async function updatePresupuesto(id, data) {
+  const montoLimite = parseFloat(data.montoLimite) || 0;
+  await updateDoc('presupuestos', id, { montoLimite });
+  return { id, montoLimite };
+}
+
 export async function deletePresupuesto(id) {
   await deleteDoc('presupuestos', id);
 }
@@ -290,6 +296,16 @@ export async function addCuenta(c) {
   });
 }
 
+export async function updateCuenta(id, data) {
+  const changes = {
+    nombre: data.nombre,
+    tipo: data.tipo || 'Banco',
+    saldoInicial: parseFloat(data.saldoInicial) || 0
+  };
+  await updateDoc('cuentas', id, changes);
+  return { id, ...changes };
+}
+
 export async function deleteCuenta(id) {
   await deleteDoc('cuentas', id);
 }
@@ -310,6 +326,20 @@ export async function addRecurrente(r) {
     frecuencia: r.frecuencia || 'mensual',
     proximaFecha: r.proximaFecha || ''
   });
+}
+
+export async function updateRecurrente(id, r) {
+  const changes = {
+    tipo: r.tipo || 'gasto',
+    categoria: r.categoria,
+    descripcion: r.descripcion || '',
+    monto: parseFloat(r.monto) || 0,
+    cuenta: r.cuenta || 'General',
+    frecuencia: r.frecuencia || 'mensual',
+    proximaFecha: r.proximaFecha || ''
+  };
+  await updateDoc('recurrentes', id, changes);
+  return { id, ...changes };
 }
 
 export async function deleteRecurrente(id) {
@@ -396,6 +426,27 @@ export async function addPrestamo(p) {
   }
   await batch.commit();
   return { id, tasaMensual: tasaMensual.toFixed(2) };
+}
+
+export async function updatePrestamo(id, p) {
+  const pr = await getDoc('prestamos', id);
+  if (!pr) throw new Error('Prestamo no encontrado');
+  const montoTotal = parseFloat(p.montoTotal);
+  const montoCuota = parseFloat(p.montoCuota);
+  const numCuotas = pr.cuotas;
+  const totalPagar = montoCuota * numCuotas;
+  const tasaMensual = montoTotal > 0 ? (((totalPagar / montoTotal) - 1) / numCuotas * 100) : 0;
+  const changes = {
+    nombre: p.nombre || 'Prestamo',
+    tipo: p.tipo || 'Debo',
+    descripcion: p.descripcion || '',
+    montoTotal, montoCuota,
+    tasaMensual: parseFloat(tasaMensual.toFixed(2)),
+    fechaInicio: p.fechaInicio || pr.fechaInicio,
+    cuenta: p.cuenta || ''
+  };
+  await updateDoc('prestamos', id, changes);
+  return { id, ...pr, ...changes };
 }
 
 export async function deletePrestamo(id) {

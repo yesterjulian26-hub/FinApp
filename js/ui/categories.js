@@ -13,7 +13,7 @@ export async function loadCategorias(skipFetch) {
       <td><span style="font-size:18px;margin-right:6px">${c.icono || ''}</span> ${c.nombre}</td>
       <td><span class="badge ${tipo}">${tipo === 'ingreso' ? 'Ingreso' : tipo === 'pago' ? 'Pago' : 'Gasto'}</span></td>
       <td style="display:flex;gap:4px">
-        <button class="btn-icon" onclick="window.openCatEdit('${c.id}','${c.nombre}','${c.icono || ''}','${c.color || ''}')" title="Personalizar">🎨</button>
+        <button class="btn-icon" onclick="window.openCatEdit('${c.id}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="window.deleteCat('${c.id}')">🗑️</button>
       </td></tr>`;
   }).join('');
@@ -41,25 +41,33 @@ window.deleteCat = async function (id) {
   loadCategorias(true);
 };
 
-window.openCatEdit = function (id, nombre, icono, color) {
+window.openCatEdit = function (id) {
+  const c = state.categorias.find(x => x.id === id);
+  if (!c) return;
   document.getElementById('catEditId').value = id;
-  document.getElementById('catEditLabel').textContent = nombre;
-  document.getElementById('catEditIcono').value = icono;
-  document.getElementById('catEditColor').value = color || '#6c5ce7';
+  document.getElementById('catEditNombre').value = c.nombre;
+  document.getElementById('catEditTipo').value = String(c.tipo || 'gasto').toLowerCase();
+  document.getElementById('catEditIcono').value = c.icono || '';
+  document.getElementById('catEditColor').value = c.color || '#6c5ce7';
   openModal('modalCatEdit');
 };
 
 window.saveCatEdit = async function () {
   const id = document.getElementById('catEditId').value;
+  const nombre = document.getElementById('catEditNombre').value;
+  if (!nombre) { toast('Ingresa un nombre'); return; }
   const changes = {
+    nombre,
+    tipo: document.getElementById('catEditTipo').value,
     icono: document.getElementById('catEditIcono').value,
     color: document.getElementById('catEditColor').value
   };
   await DB.updateCategoria(id, changes);
   const cat = state.categorias.find(c => c.id === id);
   if (cat) Object.assign(cat, changes);
+  state.categorias.sort((a, b) => a.nombre.localeCompare(b.nombre));
   closeModal('modalCatEdit');
-  toast('Categoria personalizada');
+  toast('Categoria actualizada');
   loadCategorias(true);
 };
 

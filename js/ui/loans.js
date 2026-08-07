@@ -38,11 +38,50 @@ export async function loadPrestamos() {
       ${proxima ? `<div style="font-size:12px;margin-top:6px;color:var(--text2)">Próxima: ${formatDate(proxima.fechaVencimiento)} · ${FMT.format(montoCuota)}</div>` : ''}
       <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" onclick="window.verCuotas('${p.id}')">📅 Cuotas</button>
+        <button class="btn-icon" onclick="window.openPrestamoEdit('${p.id}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="window.deletePrestamo('${p.id}')">🗑️</button>
       </div>
     </div>`;
   }).join('');
 }
+
+window.openPrestamoEdit = async function (id) {
+  const p = await DB.getPrestamo(id);
+  if (!p) return;
+  document.getElementById('prestEditId').value = id;
+  document.getElementById('modalPrestamoTitle').textContent = 'Editar Préstamo';
+  document.getElementById('prestEntidad').value = p.nombre || '';
+  document.getElementById('prestTipo').value = p.tipo || 'Debo';
+  document.getElementById('prestCuenta').value = p.cuenta || '';
+  document.getElementById('prestMonto').value = p.montoTotal || '';
+  document.getElementById('prestCuotas').value = p.cuotas || '';
+  document.getElementById('prestCuotas').disabled = true;
+  const cuotaInput = document.getElementById('prestMontoCuota');
+  cuotaInput.value = p.montoCuota || '';
+  cuotaInput.dataset.edited = 'true';
+  document.getElementById('prestFecha').value = p.fechaInicio || '';
+  document.getElementById('prestDesc').value = p.descripcion || '';
+  window.actualizarPrestamoCalculo();
+  openModal('modalPrestamo');
+};
+
+window.openPrestamoNew = function () {
+  document.getElementById('prestEditId').value = '';
+  document.getElementById('modalPrestamoTitle').textContent = 'Nuevo Préstamo';
+  document.getElementById('prestEntidad').value = '';
+  document.getElementById('prestTipo').value = 'Debo';
+  document.getElementById('prestCuenta').value = '';
+  document.getElementById('prestMonto').value = '';
+  document.getElementById('prestCuotas').value = '';
+  document.getElementById('prestCuotas').disabled = false;
+  const cuotaInput = document.getElementById('prestMontoCuota');
+  cuotaInput.value = '';
+  cuotaInput.dataset.edited = '';
+  document.getElementById('prestFecha').value = '';
+  document.getElementById('prestDesc').value = '';
+  document.getElementById('prestInteresInfo').textContent = '';
+  openModal('modalPrestamo');
+};
 
 window.actualizarPrestamoCalculo = function () {
   const monto = parseFloat(document.getElementById('prestMonto').value) || 0;
@@ -68,6 +107,7 @@ window.actualizarPrestamoCalculo = function () {
 };
 
 window.savePrestamo = async function () {
+  const editId = document.getElementById('prestEditId').value;
   const nombre = document.getElementById('prestEntidad').value;
   const tipo = document.getElementById('prestTipo').value;
   const montoTotal = document.getElementById('prestMonto').value;
@@ -80,9 +120,15 @@ window.savePrestamo = async function () {
   const montoCuota = montoCuotaInput ? parseFloat(montoCuotaInput) : (parseFloat(montoTotal) / numCuotas);
 
   try {
-    await DB.addPrestamo({ nombre, tipo, descripcion, montoTotal, montoCuota, cuotas: numCuotas, fechaInicio, cuenta });
+    if (editId) {
+      await DB.updatePrestamo(editId, { nombre, tipo, descripcion, montoTotal, montoCuota, fechaInicio, cuenta });
+      toast('Préstamo actualizado');
+    } else {
+      await DB.addPrestamo({ nombre, tipo, descripcion, montoTotal, montoCuota, cuotas: numCuotas, fechaInicio, cuenta });
+      toast('Préstamo creado con ' + numCuotas + ' cuotas');
+    }
     closeModal('modalPrestamo');
-    toast('Préstamo creado con ' + numCuotas + ' cuotas');
+    document.getElementById('prestCuotas').disabled = false;
     const cuotaInput = document.getElementById('prestMontoCuota');
     cuotaInput.value = '';
     cuotaInput.dataset.edited = '';

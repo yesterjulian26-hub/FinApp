@@ -30,7 +30,10 @@ export async function loadPresupuestos(skipFetch) {
     const badge = pct >= 100 ? '<span class="pres-alert danger">🚨 Excedido</span>' : pct >= 80 ? '<span class="pres-alert warn">⚠️ Casi al limite</span>' : '';
     return `<div class="card meta-card">
       <div class="meta-header"><h3>${p.categoria}</h3>${badge}
-        <button class="btn-icon" onclick="window.deletePres('${p.id}')">🗑️</button></div>
+        <div style="display:flex;gap:4px">
+          <button class="btn-icon" onclick="window.openPresEdit('${p.id}')" title="Editar">✏️</button>
+          <button class="btn-icon" onclick="window.deletePres('${p.id}')">🗑️</button>
+        </div></div>
       <div class="meta-amounts">${FMT.format(gastado)} de ${FMT.format(limite)}</div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
       <div class="progress-pct" style="color:${color}">${pct.toFixed(0)}% usado</div>
@@ -38,15 +41,46 @@ export async function loadPresupuestos(skipFetch) {
   }).join('');
 }
 
+window.openPresEdit = function (id) {
+  const p = presupuestosCache.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('presEditId').value = id;
+  document.getElementById('modalPresTitle').textContent = 'Editar Presupuesto';
+  const catSelect = document.getElementById('presCat');
+  catSelect.value = p.categoria;
+  catSelect.disabled = true;
+  document.getElementById('presLimite').value = p.montoLimite;
+  openModal('modalPres');
+};
+
+window.openPresNew = function () {
+  document.getElementById('presEditId').value = '';
+  document.getElementById('modalPresTitle').textContent = 'Nuevo Presupuesto';
+  document.getElementById('presCat').disabled = false;
+  document.getElementById('presLimite').value = '';
+  openModal('modalPres');
+};
+
 window.savePres = async function () {
+  const editId = document.getElementById('presEditId').value;
   const categoria = document.getElementById('presCat').value;
   const montoLimite = document.getElementById('presLimite').value;
   if (!montoLimite || !categoria) { toast('Completa los campos'); return; }
-  const pres = await DB.addPresupuesto({ categoria, montoLimite });
-  const idx = presupuestosCache.findIndex(p => p.id === pres.id);
-  if (idx >= 0) presupuestosCache[idx] = pres; else presupuestosCache.push(pres);
-  closeModal('modalPres');
-  toast('Presupuesto creado');
+
+  if (editId) {
+    const updated = await DB.updatePresupuesto(editId, { montoLimite });
+    const p = presupuestosCache.find(x => x.id === editId);
+    if (p) Object.assign(p, updated);
+    document.getElementById('presCat').disabled = false;
+    closeModal('modalPres');
+    toast('Presupuesto actualizado');
+  } else {
+    const pres = await DB.addPresupuesto({ categoria, montoLimite });
+    const idx = presupuestosCache.findIndex(p => p.id === pres.id);
+    if (idx >= 0) presupuestosCache[idx] = pres; else presupuestosCache.push(pres);
+    closeModal('modalPres');
+    toast('Presupuesto creado');
+  }
   loadPresupuestos(true);
 };
 

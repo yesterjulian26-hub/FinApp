@@ -208,7 +208,7 @@
   <section class="page" id="page-presupuestos">
     <div class="page-header">
       <h2 class="page-title">Presupuestos</h2>
-      <button class="btn btn-primary" onclick="window.openModal('modalPres')">+ Nuevo</button>
+      <button class="btn btn-primary" onclick="window.openPresNew()">+ Nuevo</button>
     </div>
     <div class="toolbar"><input type="month" id="presMes" onchange="window.loadPresupuestos()"></div>
     <div class="kpi-grid" id="presGrid"></div>
@@ -243,7 +243,7 @@
       <h2 class="page-title">Cuentas</h2>
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary" onclick="window.openTransferencia()">↔ Transferir</button>
-        <button class="btn btn-primary" onclick="window.openModal('modalCuenta')">+ Nueva Cuenta</button>
+        <button class="btn btn-primary" onclick="window.openCuentaNew()">+ Nueva Cuenta</button>
       </div>
     </div>
     <div class="kpi-grid" id="cuentasGrid"></div>
@@ -253,7 +253,7 @@
   <section class="page" id="page-prestamos">
     <div class="page-header">
       <h2 class="page-title">Préstamos</h2>
-      <button class="btn btn-primary" onclick="window.openModal('modalPrestamo')">+ Nuevo Préstamo</button>
+      <button class="btn btn-primary" onclick="window.openPrestamoNew()">+ Nuevo Préstamo</button>
     </div>
     <div class="kpi-grid" id="prestamosGrid"></div>
   </section>
@@ -264,7 +264,7 @@
       <h2 class="page-title">Transacciones Recurrentes</h2>
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary" onclick="window.processRecurrentesBtn()">⚡ Procesar</button>
-        <button class="btn btn-primary" onclick="window.openModal('modalRecurrente')">+ Nueva</button>
+        <button class="btn btn-primary" onclick="window.openRecurrenteNew()">+ Nueva</button>
       </div>
     </div>
     <div class="kpi-grid" id="recGrid"></div>
@@ -337,6 +337,51 @@
         </select>
       </div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="window.saveSettings()">Guardar ajustes</button>
+    </div>
+
+    <div class="card faq-card" style="max-width:500px;margin:24px auto 0">
+      <h3 style="margin:0 0 4px">❓ Preguntas Frecuentes</h3>
+      <p style="margin:0 0 16px;font-size:13px;color:var(--text2)">Dudas comunes sobre cómo usar FinApp</p>
+
+      <details class="faq-item">
+        <summary>¿Cómo se calcula el interés de un préstamo?</summary>
+        <p>Al crear un préstamo indicas el monto total, la cantidad de cuotas y el monto por cuota (se sugiere automáticamente si lo dejas vacío). FinApp compara lo que pagarás en total contra el monto prestado para estimar la tasa de interés mensual y anual. Puedes editar el préstamo luego con el ícono ✏️ para ajustar el monto o la cuota.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>¿Puedo editar o solo eliminar lo que registro?</summary>
+        <p>Todo lo que creas en FinApp (transacciones, cuentas, categorías, presupuestos, préstamos, recurrentes y metas) se puede editar con el ícono ✏️, no solo eliminar con 🗑️.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>¿Cómo funciona el registro de transacciones por voz?</summary>
+        <p>Presiona "🎤 Dictar" en Transacciones y di algo como "Gasté 500 en comida ayer" o "Ingreso de 15000 el 15 de agosto". FinApp detecta el tipo, monto, fecha, categoría y cuenta automáticamente, pero siempre podrás revisar y corregir antes de guardar.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>¿Qué son las transacciones recurrentes?</summary>
+        <p>Son pagos o ingresos que se repiten (ej. Netflix, salario) con una frecuencia fija — semanal, quincenal, mensual o anual. Cuando llega la fecha, presiona "⚡ Procesar" para generar automáticamente las transacciones pendientes.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>¿Cómo importo transacciones desde mi banco?</summary>
+        <p>En Transacciones, usa "📤 Importar CSV" y sube el archivo exportado por tu banco. FinApp detecta las columnas de fecha, monto y descripción automáticamente y te muestra una vista previa antes de guardar nada.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>¿Qué incluye el reporte PDF?</summary>
+        <p>Un resumen completo de tus finanzas: cuentas, metas, préstamos, presupuestos, gastos por categoría, tendencia histórica, una proyección a futuro (tomando en cuenta tus cuotas de préstamos y gastos variables) y recomendaciones según tu nivel de ingresos. Puedes elegir el rango (mes, 3 o 12 meses) desde Reportes.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>¿Para qué sirve el PIN de seguridad?</summary>
+        <p>Es una capa extra de protección local en este dispositivo. Si lo configuras, se te pedirá al abrir la app. Déjalo vacío para desactivarlo.</p>
+      </details>
+
+      <details class="faq-item">
+        <summary>¿Dónde se guardan mis datos?</summary>
+        <p>Tus datos se guardan de forma segura en tu cuenta de Google (Firebase), asociados únicamente a tu usuario. Nadie más puede verlos.</p>
+      </details>
     </div>
   </section>
 
@@ -433,7 +478,8 @@
   <!-- Presupuesto -->
   <div class="modal-overlay" id="modalPres">
     <div class="modal">
-      <h2>Nuevo Presupuesto</h2>
+      <h2 id="modalPresTitle">Nuevo Presupuesto</h2>
+      <input type="hidden" id="presEditId">
       <div class="form-group"><label>Categoría</label><select id="presCat" data-cat-select></select></div>
       <div class="form-group"><label>Monto Mensual (RD$)</label><input type="number" id="presLimite" min="0"></div>
       <div class="modal-actions">
@@ -461,11 +507,16 @@
   <!-- Cat Edit -->
   <div class="modal-overlay" id="modalCatEdit">
     <div class="modal">
-      <h2>Personalizar Categoría</h2>
+      <h2>Editar Categoría</h2>
       <input type="hidden" id="catEditId">
-      <div class="form-group"><label>Categoría</label><div id="catEditLabel" style="font-weight:700;font-size:16px;padding:8px 0"></div></div>
-      <div class="form-group"><label>Ícono (emoji)</label><input type="text" id="catEditIcono" placeholder="Ej: 🛒" maxlength="4" style="font-size:24px;text-align:center;width:60px"></div>
-      <div class="form-group"><label>Color</label><input type="color" id="catEditColor" value="#6c5ce7" style="width:60px;height:40px;border:none;cursor:pointer"></div>
+      <div class="form-group"><label>Nombre</label><input type="text" id="catEditNombre"></div>
+      <div class="form-group"><label>Tipo</label>
+        <select id="catEditTipo"><option value="gasto">Gasto</option><option value="ingreso">Ingreso</option><option value="pago">Pago</option></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Ícono (emoji)</label><input type="text" id="catEditIcono" placeholder="Ej: 🛒" maxlength="4" style="font-size:24px;text-align:center;width:60px"></div>
+        <div class="form-group"><label>Color</label><input type="color" id="catEditColor" value="#6c5ce7" style="width:60px;height:40px;border:none;cursor:pointer"></div>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="window.closeModal('modalCatEdit')">Cancelar</button>
         <button class="btn btn-primary" onclick="window.saveCatEdit()">Guardar</button>
@@ -497,7 +548,8 @@
   <!-- Cuenta -->
   <div class="modal-overlay" id="modalCuenta">
     <div class="modal">
-      <h2>Nueva Cuenta</h2>
+      <h2 id="modalCuentaTitle">Nueva Cuenta</h2>
+      <input type="hidden" id="cuentaEditId">
       <div class="form-group"><label>Nombre</label><input type="text" id="cuentaNombre" placeholder="Ej: Banreservas"></div>
       <div class="form-row">
         <div class="form-group"><label>Tipo</label>
@@ -539,7 +591,8 @@
   <!-- Préstamo -->
   <div class="modal-overlay" id="modalPrestamo">
     <div class="modal">
-      <h2>Nuevo Préstamo</h2>
+      <h2 id="modalPrestamoTitle">Nuevo Préstamo</h2>
+      <input type="hidden" id="prestEditId">
       <div class="form-group"><label>Entidad / Persona</label><input type="text" id="prestEntidad" placeholder="Ej: Banreservas"></div>
       <div class="form-row">
         <div class="form-group"><label>Tipo</label>
@@ -582,7 +635,8 @@
   <!-- Recurrente -->
   <div class="modal-overlay" id="modalRecurrente">
     <div class="modal">
-      <h2>Nueva Recurrente</h2>
+      <h2 id="modalRecurrenteTitle">Nueva Recurrente</h2>
+      <input type="hidden" id="recEditId">
       <div class="form-row">
         <div class="form-group"><label>Tipo</label>
           <select id="recTipo"><option value="Gasto">Gasto</option><option value="Ingreso">Ingreso</option><option value="Pago">Pago</option></select>
