@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finapp-v15';
+const CACHE_NAME = 'finapp-v16';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
